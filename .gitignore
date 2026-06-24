@@ -3,3 +3,4 @@ __pycache__/
 .env
 summary.txt
 sanitized_payload.json
+HOW_IT_WORKS.md

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSC Transaction Summary Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #ffffff;
+      color: #1a1a1a;
+    }
+
+    header {
+      background: #0a4d8c;
+      color: #ffffff;
+      padding: 18px 28px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .layout {
+      display: flex;
+      gap: 24px;
+      padding: 24px 28px;
+      align-items: flex-start;
+    }
+
+    .sidebar {
+      flex: 0 0 340px;
+      border: 1px solid #e2e6ea;
+      border-radius: 6px;
+      padding: 18px;
+    }
+
+    .sidebar h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: #0a4d8c;
+    }
+
+    button {
+      background: #0a4d8c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #08407a;
+    }
+
+    button:disabled {
+      background: #9bb4cc;
+      cursor: default;
+    }
+
+    .summary {
+      margin-top: 16px;
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #1a1a1a;
+    }
+
+    .placeholder {
+      color: #6b7785;
+      font-style: italic;
+    }
+
+    .error {
+      color: #b00020;
+    }
+
+
+    .main {
+      flex: 1 1 auto;
+    }
+
+    .main h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+    }
+
+    .section {
+      border: 1px solid #e2e6ea;
+      border-radius: 6px;
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      background: #f3f6f9;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #0a4d8c;
+      border-bottom: 1px solid #e2e6ea;
+    }
+
+    .row {
+      display: flex;
+      padding: 8px 16px;
+      border-bottom: 1px solid #f0f2f4;
+      font-size: 14px;
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      flex: 0 0 240px;
+      color: #55606b;
+    }
+
+    .value {
+      flex: 1 1 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>CSC Transaction Summary Demo</h1>
+  </header>
+
+  {% macro value_or_dash(v) -%}
+  {% if v is sameas true %}Yes{% elif v is sameas false %}No{% elif v is none or v == "" %}—{% else %}{{ v }}{% endif %}
+  {%- endmacro %}
+
+  <div class="layout">
+
+    <aside class="sidebar">
+      <h2>Transaction Summary</h2>
+      <button id="summarize-btn" onclick="generateSummary()">Summarize</button>
+      <div id="summary" class="summary placeholder">
+      </div>
+    </aside>
+
+    <main class="main">
+      <h2>Transaction Details</h2>
+
+      {% set txn = transaction.get("ActualTransactionData", {}) %}
+      {% if txn %}
+      <div class="section">
+        <div class="section-title">Transaction Information</div>
+        {% for key, val in txn.items() %}
+        <div class="row">
+          <div class="label">{{ key }}</div>
+          <div class="value">{{ value_or_dash(val) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% set ogs = transaction.get("OGSRiskCategoryDetails", {}) %}
+      {% if ogs %}
+      <div class="section">
+        <div class="section-title">Risk Category Details</div>
+        {% for key, val in ogs.items() %}
+        <div class="row">
+          <div class="label">{{ key }}</div>
+          <div class="value">{{ value_or_dash(val) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% set checklists = transaction.get("Checklists", {}) %}
+      {% if checklists %}
+      <div class="section">
+        <div class="section-title">Checklist</div>
+        {% for code, items in checklists.items() %}
+        {% for item in items %}
+        <div class="row">
+          <div class="label">{{ item.get("Item", "Question") }}</div>
+          <div class="value">{{ value_or_dash(item.get("Ans")) }}{% if item.get("Comment") %} — {{ item.get("Comment")
+            }}{% endif %}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% set additional = transaction.get("AdditionalInformationData", {}) %}
+      {% if additional %}
+      <div class="section">
+        <div class="section-title">Additional Information</div>
+        {% for code, info in additional.items() %}
+        {% for key, val in info.items() %}
+        <div class="row">
+          <div class="label">{{ key }}</div>
+          <div class="value">{{ value_or_dash(val) }}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </main>
+  </div>
+
+  <script>
+    async function generateSummary() {
+      const btn = document.getElementById("summarize-btn");
+      const out = document.getElementById("summary");
+
+      btn.disabled = true;
+      out.className = "summary placeholder";
+      out.textContent = "Generating…";
+
+      try {
+        const res = await fetch("/summarize", { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          out.className = "summary";
+          out.textContent = data.summary;
+        } else {
+          out.className = "summary error";
+          out.textContent = data.error || "Something went wrong.";
+        }
+      } catch (err) {
+        out.className = "summary error";
+        out.textContent = "Request failed: " + err;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+
+</html>
