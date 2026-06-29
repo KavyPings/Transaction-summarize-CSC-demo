@@ -69,6 +69,15 @@
       cursor: default;
     }
 
+    .btn-evidence {
+      background: #4a7fb5;
+      margin-top: 10px;
+    }
+
+    .btn-evidence:hover {
+      background: #3a6fa5;
+    }
+
     .summary {
       margin-top: 16px;
       white-space: pre-wrap;
@@ -85,7 +94,6 @@
     .error {
       color: #b00020;
     }
-
 
     .main {
       flex: 1 1 auto;
@@ -130,6 +138,87 @@
     .value {
       flex: 1 1 auto;
     }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fff;
+      border-radius: 8px;
+      width: 88vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e6ea;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0a4d8c;
+    }
+
+    .modal-filename {
+      font-size: 11px;
+      color: #6b7785;
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .modal-close {
+      background: transparent;
+      color: #55606b;
+      width: auto;
+      padding: 2px 8px;
+      font-size: 20px;
+      line-height: 1;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+
+    .modal-close:hover {
+      background: #f3f6f9;
+      color: #1a1a1a;
+    }
+
+    .modal-content {
+      flex: 1;
+      overflow: auto;
+      padding: 16px 20px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre;
+      margin: 0;
+      color: #1a1a1a;
+    }
+
+    .modal-content.error {
+      color: #b00020;
+    }
   </style>
 </head>
 
@@ -142,13 +231,29 @@
   {% if v is sameas true %}Yes{% elif v is sameas false %}No{% elif v is none or v == "" %}—{% else %}{{ v }}{% endif %}
   {%- endmacro %}
 
+  <!-- Evidence modal -->
+  <div id="evidence-modal" class="modal-overlay" onclick="handleModalClick(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="modal-title"></div>
+          <div class="modal-filename" id="modal-filename"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <pre class="modal-content" id="modal-content"></pre>
+    </div>
+  </div>
+
   <div class="layout">
 
     <aside class="sidebar">
       <h2>Transaction Summary</h2>
       <button id="summarize-btn" onclick="generateSummary()">Summarize</button>
-      <div id="summary" class="summary placeholder">
-      </div>
+      <div id="summary" class="summary placeholder"></div>
+      <button id="evidence-btn" class="btn-evidence" style="display:none" onclick="openModal()">
+        View Evidence Document
+      </button>
     </aside>
 
     <main class="main">
@@ -214,11 +319,16 @@
   </div>
 
   <script>
+    let evidencePayload = null;
+
     async function generateSummary() {
       const btn = document.getElementById("summarize-btn");
       const out = document.getElementById("summary");
+      const evidenceBtn = document.getElementById("evidence-btn");
 
       btn.disabled = true;
+      evidenceBtn.style.display = "none";
+      evidencePayload = null;
       out.className = "summary placeholder";
       out.textContent = "Generating…";
 
@@ -228,6 +338,16 @@
         if (res.ok) {
           out.className = "summary";
           out.textContent = data.summary;
+
+          if (data.doc_file) {
+            evidencePayload = {
+              title: data.doc_source || "Evidence Document",
+              file: data.doc_file,
+              content: data.doc_content || null,
+              error: data.doc_error || null,
+            };
+            evidenceBtn.style.display = "block";
+          }
         } else {
           out.className = "summary error";
           out.textContent = data.error || "Something went wrong.";
@@ -238,6 +358,29 @@
       } finally {
         btn.disabled = false;
       }
+    }
+
+    function openModal() {
+      if (!evidencePayload) return;
+      document.getElementById("modal-title").textContent = evidencePayload.title;
+      document.getElementById("modal-filename").textContent = evidencePayload.file;
+      const content = document.getElementById("modal-content");
+      if (evidencePayload.content) {
+        content.className = "modal-content";
+        content.textContent = evidencePayload.content;
+      } else {
+        content.className = "modal-content error";
+        content.textContent = "Error: " + evidencePayload.error;
+      }
+      document.getElementById("evidence-modal").classList.add("open");
+    }
+
+    function closeModal() {
+      document.getElementById("evidence-modal").classList.remove("open");
+    }
+
+    function handleModalClick(event) {
+      if (event.target === document.getElementById("evidence-modal")) closeModal();
     }
   </script>
 </body>
