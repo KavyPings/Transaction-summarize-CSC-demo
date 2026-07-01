@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 # pyrefly: ignore [missing-import]
 from flask import Flask, jsonify, render_template
@@ -6,8 +7,7 @@ from flask import Flask, jsonify, render_template
 from app import create_client
 from filter_data import build_summary_payload
 from prompt import SYSTEM_PROMPT
-from doc_intelligence import get_document_overview, get_excel_content, EXCEL_EXTENSIONS
-from pathlib import Path
+from evidence_extractor import extract_evidence_text
 
 app = Flask(__name__)
 
@@ -31,41 +31,34 @@ def summarize():
         transaction = load_transaction()
         payload = build_summary_payload(transaction)
 
-        
+        user_content = json.dumps(payload, indent=2)
+
+        evidence_path = transaction.get("evidence_file")
+        if evidence_path:
+            try:
+                evidence_text = extract_evidence_text(evidence_path)
+                filename = Path(evidence_path).name
+                user_content += (
+                    f"\n\nEVIDENCE DOCUMENT ({filename}):\n"
+                    + evidence_text
+                )
+            except Exception as ev_err:  # noqa: BLE001
+                user_content += f"\n\nEVIDENCE DOCUMENT: [Could not extract — {ev_err}]"
+
         client, deployment = create_client()
         response = client.chat.completions.create(
             model=deployment,
             temperature=0.2,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(payload, indent=2)},
+                {"role": "user", "content": user_content},
             ],
         )
         summary = response.choices[0].message.content or ""
-        
-        summary = "[LLM summary disabled for testing]"
 
-        result: dict = {"summary": summary}
-
-        evidence_path = transaction.get("evidence_file")
-        if evidence_path:
-            result["doc_file"] = evidence_path
-            is_excel = Path(evidence_path).suffix.lower() in EXCEL_EXTENSIONS
-            try:
-                if is_excel:
-                    result["doc_content"] = get_excel_content(evidence_path)
-                    result["doc_source"] = "Spreadsheet (openpyxl)"
-                else:
-                    result["doc_content"] = get_document_overview(evidence_path)
-                    result["doc_source"] = "Document Intelligence"
-            except Exception as exc:  # noqa: BLE001
-                result["doc_error"] = str(exc)
-
-        return jsonify(result)
-    except Exception as error:  # noqa: BLE001 - show any failure on the page
-        return jsonify(
-            {"error": f"Could not generate summary: {error}"}
-        ), 500
+        return jsonify({"summary": summary})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"Could not generate summary: {error}"}), 500
 
 
 if __name__ == "__main__":

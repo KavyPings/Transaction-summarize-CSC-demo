@@ -15,62 +15,15 @@ except AttributeError:
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
-#  for aws key
-
-# pyrefly: ignore [missing-import]
-#from openai import OpenAI
-# pyrefly: ignore [missing-import]
-#from aws_bedrock_token_generator import provide_token
-
-# for aws key
-
-# --- OLD (Azure)
 from openai import AzureOpenAI
 
 from filter_data import build_summary_payload
 from prompt import SYSTEM_PROMPT
-from doc_intelligence import get_document_overview
+from evidence_extractor import extract_evidence_text
 
 load_dotenv()
 
-"""
-# for aws key
-def create_client() -> tuple[OpenAI, str]:
-    base_url = os.getenv("BEDROCK_BASE_URL")
-    model = os.getenv("BEDROCK_MODEL")
-    project = os.getenv("BEDROCK_PROJECT")
-    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 
-    missing = [
-        name
-        for name, value in {
-            "BEDROCK_BASE_URL": base_url,
-            "BEDROCK_MODEL": model,
-        }.items()
-        if not value
-    ]
-    if missing:
-        missing_text = ", ".join(missing)
-        raise RuntimeError(
-            f"Missing AWS Bedrock settings in .env: {missing_text}"
-        )
-
-    # Use a ready Bedrock API key if provided, otherwise generate a
-    # short-lived bearer token from the AWS access key/secret in .env.
-    api_key = os.getenv("AWS_BEARER_TOKEN_BEDROCK") or provide_token(
-        region=region
-    )
-
-    client = OpenAI(
-        base_url=base_url,
-        api_key=api_key,
-        project=project,
-    )
-    return client, model
-# ===== for aws key =====
-"""
-
-# --- OLD (Azure)
 def create_client() -> tuple[AzureOpenAI, str]:
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -98,7 +51,6 @@ def create_client() -> tuple[AzureOpenAI, str]:
         api_version=api_version,
     )
     return client, deployment
-#azure
 
 def main() -> None:
     client, deployment = create_client()
@@ -106,25 +58,28 @@ def main() -> None:
     with open("transaction.json", "r", encoding="utf-8-sig") as file:
         transaction = json.load(file)
 
-    evidence_path: str | None = transaction.get("evidence_file")
-
     safe_payload = build_summary_payload(transaction)
 
     with open("sanitized_payload.json", "w", encoding="utf-8") as file:
         json.dump(safe_payload, file, indent=2)
 
+    user_content = json.dumps(safe_payload, indent=2)
+
+    evidence_path: str | None = transaction.get("evidence_file")
+    if evidence_path:
+        try:
+            evidence_text = extract_evidence_text(evidence_path)
+            from pathlib import Path
+            user_content += f"\n\nEVIDENCE DOCUMENT ({Path(evidence_path).name}):\n{evidence_text}"
+        except Exception as exc:
+            user_content += f"\n\nEVIDENCE DOCUMENT: [Could not extract — {exc}]"
+
     response = client.chat.completions.create(
         model=deployment,
         temperature=0.2,
         messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": json.dumps(safe_payload, indent=2),
-            },
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
         ],
     )
 
@@ -137,32 +92,8 @@ def main() -> None:
     print()
     print(summary)
 
-    doc_overview = ""
-    if evidence_path:
-        print()
-        print("=" * 60)
-        print("EVIDENCE DOCUMENT OVERVIEW")
-        print("=" * 60)
-        print(f"  File: {evidence_path}")
-        try:
-            doc_overview = get_document_overview(evidence_path)
-            print()
-            print(doc_overview)
-        except Exception as exc:
-            print(f"  [Error processing evidence: {exc}]")
-    else:
-        print()
-        print("[No evidence_file specified in transaction.json]")
-
-    full_output = summary
-    if doc_overview:
-        full_output += (
-            "\n\n" + "=" * 60 + "\nEVIDENCE DOCUMENT OVERVIEW\n" + "=" * 60
-            + f"\nFile: {evidence_path}\n\n" + doc_overview
-        )
-
     with open("summary.txt", "w", encoding="utf-8") as file:
-        file.write(full_output)
+        file.write(summary)
 
 
 if __name__ == "__main__":

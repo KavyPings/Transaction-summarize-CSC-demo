@@ -21,6 +21,9 @@
       background: #0a4d8c;
       color: #ffffff;
       padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     header h1 {
@@ -29,74 +32,30 @@
       font-weight: 600;
     }
 
-    .layout {
-      display: flex;
-      gap: 24px;
-      padding: 24px 28px;
-      align-items: flex-start;
-    }
-
-    .sidebar {
-      flex: 0 0 340px;
-      border: 1px solid #e2e6ea;
-      border-radius: 6px;
-      padding: 18px;
-    }
-
-    .sidebar h2 {
-      margin: 0 0 12px;
-      font-size: 16px;
+    #summarize-btn {
+      background: #ffffff;
       color: #0a4d8c;
-    }
-
-    button {
-      background: #0a4d8c;
-      color: #fff;
       border: none;
       border-radius: 4px;
-      padding: 10px 16px;
+      padding: 9px 20px;
       font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
-      width: 100%;
+      white-space: nowrap;
     }
 
-    button:hover {
-      background: #08407a;
+    #summarize-btn:hover {
+      background: #dce8f5;
     }
 
-    button:disabled {
+    #summarize-btn:disabled {
       background: #9bb4cc;
+      color: #fff;
       cursor: default;
     }
 
-    .btn-evidence {
-      background: #4a7fb5;
-      margin-top: 10px;
-    }
-
-    .btn-evidence:hover {
-      background: #3a6fa5;
-    }
-
-    .summary {
-      margin-top: 16px;
-      white-space: pre-wrap;
-      font-size: 14px;
-      line-height: 1.5;
-      color: #1a1a1a;
-    }
-
-    .placeholder {
-      color: #6b7785;
-      font-style: italic;
-    }
-
-    .error {
-      color: #b00020;
-    }
-
     .main {
-      flex: 1 1 auto;
+      padding: 24px 28px;
     }
 
     .main h2 {
@@ -139,7 +98,7 @@
       flex: 1 1 auto;
     }
 
-    /* Modal */
+    /* Summary modal */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -157,21 +116,22 @@
     .modal-box {
       background: #fff;
       border-radius: 8px;
-      width: 88vw;
+      width: 72vw;
       max-height: 88vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      padding: 16px 20px;
+      align-items: center;
+      padding: 14px 20px;
       border-bottom: 1px solid #e2e6ea;
       flex-shrink: 0;
+      background: #f3f6f9;
     }
 
     .modal-title {
@@ -180,43 +140,38 @@
       color: #0a4d8c;
     }
 
-    .modal-filename {
-      font-size: 11px;
-      color: #6b7785;
-      margin-top: 3px;
-      word-break: break-all;
-    }
-
     .modal-close {
       background: transparent;
+      border: none;
       color: #55606b;
-      width: auto;
-      padding: 2px 8px;
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
+      cursor: pointer;
+      padding: 2px 6px;
       border-radius: 4px;
-      flex-shrink: 0;
-      margin-left: 12px;
     }
 
     .modal-close:hover {
-      background: #f3f6f9;
+      background: #e2e6ea;
       color: #1a1a1a;
     }
 
-    .modal-content {
+    .modal-body {
       flex: 1;
       overflow: auto;
-      padding: 16px 20px;
-      font-family: "Consolas", "Courier New", monospace;
-      font-size: 12px;
+      padding: 20px 24px;
+      white-space: pre-wrap;
+      font-size: 14px;
       line-height: 1.6;
-      white-space: pre;
-      margin: 0;
       color: #1a1a1a;
     }
 
-    .modal-content.error {
+    .modal-body.placeholder {
+      color: #6b7785;
+      font-style: italic;
+    }
+
+    .modal-body.error {
       color: #b00020;
     }
   </style>
@@ -225,162 +180,118 @@
 <body>
   <header>
     <h1>CSC Transaction Summary Demo</h1>
+    <button id="summarize-btn" onclick="generateSummary()">Summarize</button>
   </header>
 
   {% macro value_or_dash(v) -%}
   {% if v is sameas true %}Yes{% elif v is sameas false %}No{% elif v is none or v == "" %}—{% else %}{{ v }}{% endif %}
   {%- endmacro %}
 
-  <!-- Evidence modal -->
-  <div id="evidence-modal" class="modal-overlay" onclick="handleModalClick(event)">
+  <div class="main">
+    <h2>Transaction Details</h2>
+
+    {% set txn = transaction.get("ActualTransactionData", {}) %}
+    {% if txn %}
+    <div class="section">
+      <div class="section-title">Transaction Information</div>
+      {% for key, val in txn.items() %}
+      <div class="row">
+        <div class="label">{{ key }}</div>
+        <div class="value">{{ value_or_dash(val) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% set ogs = transaction.get("OGSRiskCategoryDetails", {}) %}
+    {% if ogs %}
+    <div class="section">
+      <div class="section-title">Risk Category Details</div>
+      {% for key, val in ogs.items() %}
+      <div class="row">
+        <div class="label">{{ key }}</div>
+        <div class="value">{{ value_or_dash(val) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% set checklists = transaction.get("Checklists", {}) %}
+    {% if checklists %}
+    <div class="section">
+      <div class="section-title">Checklist</div>
+      {% for code, items in checklists.items() %}
+      {% for item in items %}
+      <div class="row">
+        <div class="label">{{ item.get("Item", "Question") }}</div>
+        <div class="value">{{ value_or_dash(item.get("Ans")) }}{% if item.get("Comment") %} &#8212; {{ item.get("Comment") }}{% endif %}</div>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% set additional = transaction.get("AdditionalInformationData", {}) %}
+    {% if additional %}
+    <div class="section">
+      <div class="section-title">Additional Information</div>
+      {% for code, info in additional.items() %}
+      {% for key, val in info.items() %}
+      <div class="row">
+        <div class="label">{{ key }}</div>
+        <div class="value">{{ value_or_dash(val) }}</div>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Summary modal -->
+  <div id="summary-modal" class="modal-overlay" onclick="handleOverlayClick(event)">
     <div class="modal-box">
       <div class="modal-header">
-        <div>
-          <div class="modal-title" id="modal-title"></div>
-          <div class="modal-filename" id="modal-filename"></div>
-        </div>
-        <button class="modal-close" onclick="closeModal()">✕</button>
+        <span class="modal-title">Transaction Summary</span>
+        <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
       </div>
-      <pre class="modal-content" id="modal-content"></pre>
+      <div id="summary-body" class="modal-body placeholder">Generating…</div>
     </div>
   </div>
 
-  <div class="layout">
-
-    <aside class="sidebar">
-      <h2>Transaction Summary</h2>
-      <button id="summarize-btn" onclick="generateSummary()">Summarize</button>
-      <div id="summary" class="summary placeholder"></div>
-      <button id="evidence-btn" class="btn-evidence" style="display:none" onclick="openModal()">
-        View Evidence Document
-      </button>
-    </aside>
-
-    <main class="main">
-      <h2>Transaction Details</h2>
-
-      {% set txn = transaction.get("ActualTransactionData", {}) %}
-      {% if txn %}
-      <div class="section">
-        <div class="section-title">Transaction Information</div>
-        {% for key, val in txn.items() %}
-        <div class="row">
-          <div class="label">{{ key }}</div>
-          <div class="value">{{ value_or_dash(val) }}</div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% set ogs = transaction.get("OGSRiskCategoryDetails", {}) %}
-      {% if ogs %}
-      <div class="section">
-        <div class="section-title">Risk Category Details</div>
-        {% for key, val in ogs.items() %}
-        <div class="row">
-          <div class="label">{{ key }}</div>
-          <div class="value">{{ value_or_dash(val) }}</div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% set checklists = transaction.get("Checklists", {}) %}
-      {% if checklists %}
-      <div class="section">
-        <div class="section-title">Checklist</div>
-        {% for code, items in checklists.items() %}
-        {% for item in items %}
-        <div class="row">
-          <div class="label">{{ item.get("Item", "Question") }}</div>
-          <div class="value">{{ value_or_dash(item.get("Ans")) }}{% if item.get("Comment") %} — {{ item.get("Comment")
-            }}{% endif %}</div>
-        </div>
-        {% endfor %}
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% set additional = transaction.get("AdditionalInformationData", {}) %}
-      {% if additional %}
-      <div class="section">
-        <div class="section-title">Additional Information</div>
-        {% for code, info in additional.items() %}
-        {% for key, val in info.items() %}
-        <div class="row">
-          <div class="label">{{ key }}</div>
-          <div class="value">{{ value_or_dash(val) }}</div>
-        </div>
-        {% endfor %}
-        {% endfor %}
-      </div>
-      {% endif %}
-    </main>
-  </div>
-
   <script>
-    let evidencePayload = null;
-
     async function generateSummary() {
       const btn = document.getElementById("summarize-btn");
-      const out = document.getElementById("summary");
-      const evidenceBtn = document.getElementById("evidence-btn");
+      const body = document.getElementById("summary-body");
 
       btn.disabled = true;
-      evidenceBtn.style.display = "none";
-      evidencePayload = null;
-      out.className = "summary placeholder";
-      out.textContent = "Generating…";
+      body.className = "modal-body placeholder";
+      body.textContent = "Generating…";
+      document.getElementById("summary-modal").classList.add("open");
 
       try {
         const res = await fetch("/summarize", { method: "POST" });
         const data = await res.json();
         if (res.ok) {
-          out.className = "summary";
-          out.textContent = data.summary;
-
-          if (data.doc_file) {
-            evidencePayload = {
-              title: data.doc_source || "Evidence Document",
-              file: data.doc_file,
-              content: data.doc_content || null,
-              error: data.doc_error || null,
-            };
-            evidenceBtn.style.display = "block";
-          }
+          body.className = "modal-body";
+          body.textContent = data.summary;
         } else {
-          out.className = "summary error";
-          out.textContent = data.error || "Something went wrong.";
+          body.className = "modal-body error";
+          body.textContent = data.error || "Something went wrong.";
         }
       } catch (err) {
-        out.className = "summary error";
-        out.textContent = "Request failed: " + err;
+        body.className = "modal-body error";
+        body.textContent = "Request failed: " + err;
       } finally {
         btn.disabled = false;
       }
     }
 
-    function openModal() {
-      if (!evidencePayload) return;
-      document.getElementById("modal-title").textContent = evidencePayload.title;
-      document.getElementById("modal-filename").textContent = evidencePayload.file;
-      const content = document.getElementById("modal-content");
-      if (evidencePayload.content) {
-        content.className = "modal-content";
-        content.textContent = evidencePayload.content;
-      } else {
-        content.className = "modal-content error";
-        content.textContent = "Error: " + evidencePayload.error;
-      }
-      document.getElementById("evidence-modal").classList.add("open");
-    }
-
     function closeModal() {
-      document.getElementById("evidence-modal").classList.remove("open");
+      document.getElementById("summary-modal").classList.remove("open");
     }
 
-    function handleModalClick(event) {
-      if (event.target === document.getElementById("evidence-modal")) closeModal();
+    function handleOverlayClick(event) {
+      if (event.target === document.getElementById("summary-modal")) closeModal();
     }
   </script>
 </body>
