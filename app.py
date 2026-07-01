@@ -5,8 +5,6 @@ import json
 import os
 import sys
 
-# Print UTF-8 to the terminal so summaries with characters like
-# non-breaking hyphens don't crash on Windows (cp1252) consoles.
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except AttributeError:
@@ -14,12 +12,11 @@ except AttributeError:
 
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
-
 from openai import AzureOpenAI
 
 from filter_data import build_summary_payload
 from prompt import SYSTEM_PROMPT
-from evidence_extractor import extract_evidence_text
+from evidence_extractor import build_user_message
 
 load_dotenv()
 
@@ -40,10 +37,7 @@ def create_client() -> tuple[AzureOpenAI, str]:
         if not value
     ]
     if missing:
-        missing_text = ", ".join(missing)
-        raise RuntimeError(
-            f"Missing Azure OpenAI settings in .env: {missing_text}"
-        )
+        raise RuntimeError(f"Missing Azure OpenAI settings in .env: {', '.join(missing)}")
 
     client = AzureOpenAI(
         azure_endpoint=endpoint,
@@ -52,48 +46,32 @@ def create_client() -> tuple[AzureOpenAI, str]:
     )
     return client, deployment
 
+
 def main() -> None:
     client, deployment = create_client()
 
-    with open("transaction.json", "r", encoding="utf-8-sig") as file:
-        transaction = json.load(file)
+    with open("transaction.json", "r", encoding="utf-8-sig") as f:
+        transaction = json.load(f)
 
-    safe_payload = build_summary_payload(transaction)
+    user_content = json.dumps(build_summary_payload(transaction), indent=2)
 
-    with open("sanitized_payload.json", "w", encoding="utf-8") as file:
-        json.dump(safe_payload, file, indent=2)
-
-    user_content = json.dumps(safe_payload, indent=2)
-
-    evidence_path: str | None = transaction.get("evidence_file")
-    if evidence_path:
-        try:
-            evidence_text = extract_evidence_text(evidence_path)
-            from pathlib import Path
-            user_content += f"\n\nEVIDENCE DOCUMENT ({Path(evidence_path).name}):\n{evidence_text}"
-        except Exception as exc:
-            user_content += f"\n\nEVIDENCE DOCUMENT: [Could not extract — {exc}]"
+    evidence_files = transaction.get("evidence_files") or []
+    user_message = build_user_message(user_content, evidence_files)
 
     response = client.chat.completions.create(
         model=deployment,
         temperature=0.2,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
+            {"role": "user", "content": user_message},
         ],
     )
 
     summary = response.choices[0].message.content or ""
+    print(f"\n{'=' * 60}\nTRANSACTION SUMMARY\n{'=' * 60}\n\n{summary}")
 
-    print()
-    print("=" * 60)
-    print("TRANSACTION SUMMARY")
-    print("=" * 60)
-    print()
-    print(summary)
-
-    with open("summary.txt", "w", encoding="utf-8") as file:
-        file.write(summary)
+    with open("summary.txt", "w", encoding="utf-8") as f:
+        f.write(summary)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 # pyrefly: ignore [missing-import]
 from flask import Flask, jsonify, render_template
@@ -7,7 +6,7 @@ from flask import Flask, jsonify, render_template
 from app import create_client
 from filter_data import build_summary_payload
 from prompt import SYSTEM_PROMPT
-from evidence_extractor import extract_evidence_text
+from evidence_extractor import build_user_message
 
 app = Flask(__name__)
 
@@ -31,19 +30,8 @@ def summarize():
         transaction = load_transaction()
         payload = build_summary_payload(transaction)
 
-        user_content = json.dumps(payload, indent=2)
-
-        evidence_path = transaction.get("evidence_file")
-        if evidence_path:
-            try:
-                evidence_text = extract_evidence_text(evidence_path)
-                filename = Path(evidence_path).name
-                user_content += (
-                    f"\n\nEVIDENCE DOCUMENT ({filename}):\n"
-                    + evidence_text
-                )
-            except Exception as ev_err:  # noqa: BLE001
-                user_content += f"\n\nEVIDENCE DOCUMENT: [Could not extract — {ev_err}]"
+        evidence_files = transaction.get("evidence_files") or []
+        user_message = build_user_message(json.dumps(payload, indent=2), evidence_files)
 
         client, deployment = create_client()
         response = client.chat.completions.create(
@@ -51,7 +39,7 @@ def summarize():
             temperature=0.2,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
+                {"role": "user", "content": user_message},
             ],
         )
         summary = response.choices[0].message.content or ""

@@ -1,5 +1,6 @@
-.venv/
+.venv*/
 __pycache__/
+.tmp/
 .env
 summary.txt
 sanitized_payload.json

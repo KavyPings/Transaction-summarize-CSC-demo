@@ -1,9 +1,35 @@
 from __future__ import annotations
 
+import base64
 import os
 from pathlib import Path
 
 EXCEL_EXTENSIONS = {".xlsx", ".xls"}
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
+
+_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".bmp": "image/bmp",
+    ".tiff": "image/tiff",
+}
+
+
+def is_image_file(path: str) -> bool:
+    return Path(path).suffix.lower() in IMAGE_EXTENSIONS
+
+
+def encode_image_for_llm(path: str) -> dict:
+    """Return an OpenAI image_url content block for direct vision input."""
+    suffix = Path(path).suffix.lower()
+    mime = _MIME.get(suffix, "image/png")
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    return {
+        "type": "image_url",
+        "image_url": {"url": f"data:{mime};base64,{b64}", "detail": "high"},
+    }
 
 
 def _extract_excel(path: str) -> str:
@@ -67,8 +93,43 @@ def _extract_msg(path: str) -> str:
     return "\n".join(parts)
 
 
+def build_user_message(transaction_json: str, evidence_paths: list[str]) -> object:
+    """
+    Builds the user message content for the LLM.
+    Text evidences are embedded inline; images are sent as vision blocks.
+    Returns a plain string when there are no images, or a content array otherwise.
+    """
+    if not evidence_paths:
+        return transaction_json
+
+    has_images = any(is_image_file(p) for p in evidence_paths)
+
+    if not has_images:
+        parts = [transaction_json]
+        for i, path in enumerate(evidence_paths, 1):
+            label = f"Evidence {i} ({Path(path).suffix.lstrip('.').upper()})"
+            try:
+                parts.append(f"\n\n{label}:\n{extract_evidence_text(path)}")
+            except Exception as exc:
+                parts.append(f"\n\n{label}: [Could not extract — {exc}]")
+        return "".join(parts)
+
+    content: list[dict] = [{"type": "text", "text": transaction_json}]
+    for i, path in enumerate(evidence_paths, 1):
+        label = f"Evidence {i} ({Path(path).suffix.lstrip('.').upper()})"
+        if is_image_file(path):
+            content.append({"type": "text", "text": f"\n\n{label}:"})
+            content.append(encode_image_for_llm(path))
+        else:
+            try:
+                text = extract_evidence_text(path)
+                content.append({"type": "text", "text": f"\n\n{label}:\n{text}"})
+            except Exception as exc:
+                content.append({"type": "text", "text": f"\n\n{label}: [Could not extract — {exc}]"})
+    return content
+
+
 def extract_evidence_text(path: str) -> str:
-    """Extract plain text from an evidence document for LLM consumption."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"Evidence file not found: {path}")
 
@@ -80,7 +141,5 @@ def extract_evidence_text(path: str) -> str:
         return _extract_pdf(path)
     if suffix == ".msg":
         return _extract_msg(path)
-    if suffix in (".png", ".jpg", ".jpeg", ".bmp", ".tiff"):
-        raise ValueError("Image files require OCR — not supported in text-extraction mode.")
 
-    raise ValueError(f"Unsupported file type for extraction: {suffix}")
+    raise ValueError(f"Unsupported file type for text extraction: {suffix}")
