@@ -1,7 +1,7 @@
 import json
 
 # pyrefly: ignore [missing-import]
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 
 from app import create_client
 from filter_data import build_summary_payload
@@ -28,7 +28,9 @@ def index():
 def summarize():
     try:
         transaction = load_transaction()
-        payload = build_summary_payload(transaction)
+
+        # Page agent sends pre-filtered payload as JSON body; fall back to server-side filtering
+        payload = request.get_json(silent=True) or build_summary_payload(transaction)
 
         evidence_files = transaction.get("evidence_files") or []
         user_message = build_user_message(json.dumps(payload, indent=2), evidence_files)
@@ -41,7 +43,7 @@ def summarize():
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
             ],
-        )
+ )
         summary = response.choices[0].message.content or ""
 
         return jsonify({"summary": summary})

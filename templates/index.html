@@ -258,6 +258,7 @@
     </div>
   </div>
 
+  <script src="{{ url_for('static', filename='agent.js') }}"></script>
   <script>
     async function generateSummary() {
       const btn = document.getElementById("summarize-btn");
@@ -269,9 +270,8 @@
       document.getElementById("summary-modal").classList.add("open");
 
       try {
-        const res = await fetch("/summarize", { method: "POST" });
-        const data = await res.json();
-        if (res.ok) {
+        const data = await new PageAgent().send();
+        if (data.summary) {
           body.className = "modal-body";
           body.textContent = data.summary;
         } else {
