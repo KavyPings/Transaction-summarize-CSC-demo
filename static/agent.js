@@ -96,9 +96,9 @@ class PageAgent {
     };
   }
 
-  /** POST the filtered payload to /summarize and return the parsed JSON response. */
-  async send() {
-    const res = await fetch("/summarize", {
+  /** POST the filtered payload to the given endpoint and return the parsed JSON response. */
+  async send(endpoint = "/start") {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(this.filter()),

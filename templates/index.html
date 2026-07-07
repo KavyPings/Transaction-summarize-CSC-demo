@@ -6,9 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CSC Transaction Summary Demo</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -19,21 +17,17 @@
 
     header {
       background: #0a4d8c;
-      color: #ffffff;
+      color: #fff;
       padding: 18px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 600; }
 
-    #summarize-btn {
-      background: #ffffff;
+    #chat-btn {
+      background: #fff;
       color: #0a4d8c;
       border: none;
       border-radius: 4px;
@@ -44,30 +38,13 @@
       white-space: nowrap;
     }
 
-    #summarize-btn:hover {
-      background: #dce8f5;
-    }
+    #chat-btn:hover { background: #dce8f5; }
+    #chat-btn:disabled { background: #9bb4cc; color: #fff; cursor: default; }
 
-    #summarize-btn:disabled {
-      background: #9bb4cc;
-      color: #fff;
-      cursor: default;
-    }
+    .main { padding: 24px 28px; }
+    .main h2 { margin: 0 0 16px; font-size: 18px; }
 
-    .main {
-      padding: 24px 28px;
-    }
-
-    .main h2 {
-      margin: 0 0 16px;
-      font-size: 18px;
-    }
-
-    .section {
-      border: 1px solid #e2e6ea;
-      border-radius: 6px;
-      margin-bottom: 18px;
-    }
+    .section { border: 1px solid #e2e6ea; border-radius: 6px; margin-bottom: 18px; }
 
     .section-title {
       background: #f3f6f9;
@@ -78,50 +55,32 @@
       border-bottom: 1px solid #e2e6ea;
     }
 
-    .row {
-      display: flex;
-      padding: 8px 16px;
-      border-bottom: 1px solid #f0f2f4;
-      font-size: 14px;
-    }
+    .row { display: flex; padding: 8px 16px; border-bottom: 1px solid #f0f2f4; font-size: 14px; }
+    .row:last-child { border-bottom: none; }
+    .label { flex: 0 0 240px; color: #55606b; }
+    .value { flex: 1 1 auto; }
 
-    .row:last-child {
-      border-bottom: none;
-    }
-
-    .label {
-      flex: 0 0 240px;
-      color: #55606b;
-    }
-
-    .value {
-      flex: 1 1 auto;
-    }
-
-    /* Summary modal */
+    /* Modal */
     .modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0,0,0,0.5);
       z-index: 1000;
       align-items: center;
       justify-content: center;
     }
-
-    .modal-overlay.open {
-      display: flex;
-    }
+    .modal-overlay.open { display: flex; }
 
     .modal-box {
       background: #fff;
       border-radius: 8px;
-      width: 72vw;
-      max-height: 88vh;
+      width: 76vw;
+      height: 88vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
     }
 
     .modal-header {
@@ -134,11 +93,7 @@
       background: #f3f6f9;
     }
 
-    .modal-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #0a4d8c;
-    }
+    .modal-title { font-size: 15px; font-weight: 600; color: #0a4d8c; }
 
     .modal-close {
       background: transparent;
@@ -150,37 +105,107 @@
       padding: 2px 6px;
       border-radius: 4px;
     }
+    .modal-close:hover { background: #e2e6ea; color: #1a1a1a; }
 
-    .modal-close:hover {
-      background: #e2e6ea;
-      color: #1a1a1a;
-    }
-
-    .modal-body {
-      flex: 1;
-      overflow: auto;
-      padding: 20px 24px;
+    /* Summary panel — top portion of modal */
+    .summary-panel {
+      flex: 0 0 auto;
+      max-height: 38%;
+      overflow-y: auto;
+      padding: 16px 20px;
+      border-bottom: 2px solid #e2e6ea;
       white-space: pre-wrap;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.6;
       color: #1a1a1a;
     }
+    .summary-panel.placeholder { color: #6b7785; font-style: italic; }
+    .summary-panel.error { color: #b00020; }
 
-    .modal-body.placeholder {
+    /* Chat section — fills remaining height */
+    .chat-label {
+      flex-shrink: 0;
+      padding: 8px 20px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       color: #6b7785;
+      background: #fafbfc;
+      border-bottom: 1px solid #f0f2f4;
+    }
+
+    .chat-messages {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .msg-bot { align-self: flex-start; background: #f3f6f9; color: #1a1a1a; border-bottom-left-radius: 4px; }
+    .msg-user { align-self: flex-end; background: #0a4d8c; color: #fff; border-bottom-right-radius: 4px; }
+    .msg-error { align-self: flex-start; background: #fdecea; color: #b00020; border-bottom-left-radius: 4px; }
+
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9bb4cc;
+      font-size: 13px;
       font-style: italic;
     }
 
-    .modal-body.error {
-      color: #b00020;
+    .chat-input-row {
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      border-top: 1px solid #e2e6ea;
+      background: #fafbfc;
     }
+
+    #chat-input {
+      flex: 1;
+      padding: 9px 12px;
+      font-size: 13px;
+      border: 1px solid #c8d0d8;
+      border-radius: 4px;
+      outline: none;
+    }
+    #chat-input:focus { border-color: #0a4d8c; }
+    #chat-input:disabled { background: #f3f6f9; }
+
+    #send-btn {
+      background: #0a4d8c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #send-btn:hover { background: #08407a; }
+    #send-btn:disabled { background: #9bb4cc; cursor: default; }
   </style>
 </head>
 
 <body>
   <header>
     <h1>CSC Transaction Summary Demo</h1>
-    <button id="summarize-btn" onclick="generateSummary()">Summarize</button>
+    <button id="chat-btn" onclick="openChat()">Chat Bot</button>
   </header>
 
   {% macro value_or_dash(v) -%}
@@ -247,51 +272,128 @@
     {% endif %}
   </div>
 
-  <!-- Summary modal -->
-  <div id="summary-modal" class="modal-overlay" onclick="handleOverlayClick(event)">
+  <!-- Chat modal -->
+  <div id="chat-modal" class="modal-overlay" onclick="handleOverlayClick(event)">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title">Transaction Summary</span>
+        <span class="modal-title">Transaction Chat</span>
         <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
       </div>
-      <div id="summary-body" class="modal-body placeholder">Generating…</div>
+
+      <!-- Summary at top -->
+      <div id="summary-panel" class="summary-panel placeholder">Generating summary…</div>
+
+      <!-- Chat below -->
+      <div class="chat-label">Ask a question</div>
+      <div id="chat-messages" class="chat-messages">
+        <div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start the conversation.</div>
+      </div>
+      <div class="chat-input-row">
+        <input id="chat-input" type="text" placeholder="Ask a question about this transaction…" disabled
+               onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendMessage(); }" />
+        <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
+      </div>
     </div>
   </div>
 
   <script src="{{ url_for('static', filename='agent.js') }}"></script>
   <script>
-    async function generateSummary() {
-      const btn = document.getElementById("summarize-btn");
-      const body = document.getElementById("summary-body");
+    let sessionId = null;
+
+    async function openChat() {
+      const btn = document.getElementById("chat-btn");
+      const summary = document.getElementById("summary-panel");
+      const input = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("send-btn");
 
       btn.disabled = true;
-      body.className = "modal-body placeholder";
-      body.textContent = "Generating…";
-      document.getElementById("summary-modal").classList.add("open");
+      summary.className = "summary-panel placeholder";
+      summary.textContent = "Generating summary…";
+      document.getElementById("chat-modal").classList.add("open");
+
+      // Clear any previous chat messages
+      const messages = document.getElementById("chat-messages");
+      messages.innerHTML = '<div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start the conversation.</div>';
+      sessionId = null;
+      input.disabled = true;
+      sendBtn.disabled = true;
 
       try {
-        const data = await new PageAgent().send();
+        const data = await new PageAgent().send("/start");
         if (data.summary) {
-          body.className = "modal-body";
-          body.textContent = data.summary;
+          summary.className = "summary-panel";
+          summary.textContent = data.summary;
+          sessionId = data.session_id;
+          input.disabled = false;
+          sendBtn.disabled = false;
+          input.focus();
         } else {
-          body.className = "modal-body error";
-          body.textContent = data.error || "Something went wrong.";
+          summary.className = "summary-panel error";
+          summary.textContent = data.error || "Something went wrong.";
         }
       } catch (err) {
-        body.className = "modal-body error";
-        body.textContent = "Request failed: " + err;
+        summary.className = "summary-panel error";
+        summary.textContent = "Request failed: " + err;
       } finally {
         btn.disabled = false;
       }
     }
 
+    async function sendMessage() {
+      const input = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("send-btn");
+      const question = input.value.trim();
+      if (!question || !sessionId) return;
+
+      // Remove empty placeholder
+      const empty = document.getElementById("chat-empty");
+      if (empty) empty.remove();
+
+      const messages = document.getElementById("chat-messages");
+
+      // Append user bubble
+      const userBubble = document.createElement("div");
+      userBubble.className = "msg msg-user";
+      userBubble.textContent = question;
+      messages.appendChild(userBubble);
+      input.value = "";
+
+      // Append typing indicator
+      const typing = document.createElement("div");
+      typing.className = "msg msg-bot";
+      typing.textContent = "…";
+      messages.appendChild(typing);
+      messages.scrollTop = messages.scrollHeight;
+
+      input.disabled = true;
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, session_id: sessionId }),
+        });
+        const data = await res.json();
+        typing.textContent = data.answer || data.error || "No response.";
+        if (data.error) typing.className = "msg msg-error";
+      } catch (err) {
+        typing.className = "msg msg-error";
+        typing.textContent = "Request failed: " + err;
+      } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        messages.scrollTop = messages.scrollHeight;
+      }
+    }
+
     function closeModal() {
-      document.getElementById("summary-modal").classList.remove("open");
+      document.getElementById("chat-modal").classList.remove("open");
     }
 
     function handleOverlayClick(event) {
-      if (event.target === document.getElementById("summary-modal")) closeModal();
+      if (event.target === document.getElementById("chat-modal")) closeModal();
     }
   </script>
 </body>
