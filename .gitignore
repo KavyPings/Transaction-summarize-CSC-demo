@@ -5,3 +5,5 @@ __pycache__/
 summary.txt
 sanitized_payload.json
 transaction.json
+summary_cache.json
+chat_history.json

@@ -17,7 +17,10 @@ def _get_embedder():
 
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    return _get_embedder().encode(texts, convert_to_numpy=True).tolist()
+    return [v.tolist() for v in _get_embedder().encode(texts, convert_to_numpy=True)]
+
+
+DIMENSION = 384  # all-MiniLM-L6-v2
 
 
 def _get_index():
@@ -29,11 +32,17 @@ def _get_index():
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index_name = os.getenv("PINECONE_INDEX_NAME", "transaction-rag")
 
-    existing = [idx.name for idx in pc.list_indexes()]
+    existing = {idx.name: idx for idx in pc.list_indexes()}
+
+    if index_name in existing:
+        if existing[index_name].dimension != DIMENSION:
+            pc.delete_index(index_name)
+            existing = {}
+
     if index_name not in existing:
         pc.create_index(
             name=index_name,
-            dimension=384,  # all-MiniLM-L6-v2 output size
+            dimension=DIMENSION,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )

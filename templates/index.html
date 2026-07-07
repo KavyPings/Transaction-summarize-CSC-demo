@@ -300,19 +300,29 @@
   <script>
     let sessionId = null;
 
+    function addMessage(type, text) {
+      const messages = document.getElementById("chat-messages");
+      const empty = document.getElementById("chat-empty");
+      if (empty) empty.remove();
+      const bubble = document.createElement("div");
+      bubble.className = `msg msg-${type}`;
+      bubble.textContent = text;
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+
     async function openChat() {
       const btn = document.getElementById("chat-btn");
       const summary = document.getElementById("summary-panel");
       const input = document.getElementById("chat-input");
       const sendBtn = document.getElementById("send-btn");
+      const messages = document.getElementById("chat-messages");
 
       btn.disabled = true;
       summary.className = "summary-panel placeholder";
-      summary.textContent = "Generating summary…";
+      summary.textContent = "Loading…";
       document.getElementById("chat-modal").classList.add("open");
-
-      // Clear any previous chat messages
-      const messages = document.getElementById("chat-messages");
       messages.innerHTML = '<div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start the conversation.</div>';
       sessionId = null;
       input.disabled = true;
@@ -324,6 +334,16 @@
           summary.className = "summary-panel";
           summary.textContent = data.summary;
           sessionId = data.session_id;
+
+          // Restore previous chat messages for this session
+          try {
+            const histRes = await fetch(`/history?session_id=${sessionId}`);
+            const histData = await histRes.json();
+            for (const msg of histData.messages || []) {
+              addMessage(msg.role === "user" ? "user" : "bot", msg.content);
+            }
+          } catch (_) {}
+
           input.disabled = false;
           sendBtn.disabled = false;
           input.focus();
@@ -345,25 +365,11 @@
       const question = input.value.trim();
       if (!question || !sessionId) return;
 
-      // Remove empty placeholder
-      const empty = document.getElementById("chat-empty");
-      if (empty) empty.remove();
-
-      const messages = document.getElementById("chat-messages");
-
-      // Append user bubble
-      const userBubble = document.createElement("div");
-      userBubble.className = "msg msg-user";
-      userBubble.textContent = question;
-      messages.appendChild(userBubble);
+      addMessage("user", question);
       input.value = "";
 
-      // Append typing indicator
-      const typing = document.createElement("div");
-      typing.className = "msg msg-bot";
-      typing.textContent = "…";
-      messages.appendChild(typing);
-      messages.scrollTop = messages.scrollHeight;
+      // Typing indicator
+      const typing = addMessage("bot", "…");
 
       input.disabled = true;
       sendBtn.disabled = true;
@@ -384,7 +390,7 @@
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
-        messages.scrollTop = messages.scrollHeight;
+        document.getElementById("chat-messages").scrollTop = 9999;
       }
     }
 
