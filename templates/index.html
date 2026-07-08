@@ -533,11 +533,13 @@
     }
 
     function showFollowUpQuestions(questions) {
+      const area = document.getElementById("suggestions-area");
       const section = document.getElementById("followup-section");
       const pills = document.getElementById("followup-pills");
       pills.innerHTML = "";
       if (questions && questions.length) {
         questions.forEach(q => makePill(q, pills));
+        area.prepend(section);   // move to top on first (and every) reveal
         section.style.display = "";
       }
     }
