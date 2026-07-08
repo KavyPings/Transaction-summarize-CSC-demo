@@ -152,7 +152,8 @@ def chat():
         body = request.get_json() or {}
         question = body.get("question", "").strip()
         session_id = body.get("session_id", "").strip()
-        save_history = body.get("save", True)
+        # history_key lets callers bucket history separately (e.g. suggest_<session_id>)
+        history_key = body.get("history_key") or session_id
 
         if not question or not session_id:
             return jsonify({"error": "Missing question or session_id"}), 400
@@ -184,9 +185,8 @@ def chat():
             answer = raw.strip()
             questions = []
 
-        if save_history:
-            _append_history(session_id, "user", question)
-            _append_history(session_id, "assistant", answer)
+        _append_history(history_key, "user", question)
+        _append_history(history_key, "assistant", answer)
 
         return jsonify({"answer": answer, "questions": questions})
 
