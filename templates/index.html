@@ -259,6 +259,7 @@
   <header>
     <h1>CSC Transaction Summary Demo</h1>
     <div style="display:flex;gap:10px">
+      <button id="reset-btn" class="header-btn" style="background:#dce8f5;color:#55606b" onclick="resetHistory()">Reset History</button>
       <button id="suggest-btn" class="header-btn" onclick="openSuggestions()">Suggested Questions</button>
       <button id="chat-btn" class="header-btn" onclick="openChat()">Chat Bot</button>
     </div>
@@ -494,6 +495,29 @@
         input.focus();
         document.getElementById("chat-messages").scrollTop = 9999;
       }
+    }
+
+    async function resetHistory() {
+      if (!sessionId) return;
+      try {
+        await fetch("/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+      } catch (_) {}
+
+      // Clear chat modal
+      document.getElementById("chat-messages").innerHTML =
+        '<div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start.</div>';
+
+      // Clear suggestions modal
+      document.getElementById("suggest-messages").innerHTML =
+        '<div class="chat-empty" id="suggest-empty">Click a question below to get started.</div>';
+
+      // Reset follow-up questions
+      document.getElementById("followup-section").style.display = "none";
+      document.getElementById("followup-pills").innerHTML = "";
     }
 
     function closeModal() {

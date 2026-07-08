@@ -24,8 +24,9 @@ HISTORY_FILE = Path("chat_history.json")
 _cache_lock = Lock()
 _history_lock = Lock()
 
-_summary_cache: dict = {}  # tx_hash -> {session_id, summary}
-_chat_history: dict = {}   # session_id -> [{role, content}]
+_summary_cache: dict = {}      # tx_hash -> {session_id, summary}
+_session_to_summary: dict = {} # session_id -> summary  (reverse lookup for /chat)
+_chat_history: dict = {}       # session_id -> [{role, content}]
 
 CHAT_SYSTEM = (
     "You are a transaction approval advisor. "
@@ -38,10 +39,14 @@ CHAT_SYSTEM = (
 
 
 def _load_caches() -> None:
-    global _summary_cache, _chat_history
+    global _summary_cache, _session_to_summary, _chat_history
     if CACHE_FILE.exists():
         try:
             _summary_cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            _session_to_summary = {
+                v["session_id"]: v["summary"]
+                for v in _summary_cache.values()
+            }
         except Exception:
             _summary_cache = {}
     if HISTORY_FILE.exists():
@@ -62,6 +67,7 @@ def _get_cached(tx_hash: str) -> dict | None:
 def _set_cached(tx_hash: str, session_id: str, summary: str) -> None:
     with _cache_lock:
         _summary_cache[tx_hash] = {"session_id": session_id, "summary": summary}
+        _session_to_summary[session_id] = summary
         CACHE_FILE.write_text(json.dumps(_summary_cache, indent=2), encoding="utf-8")
 
 
@@ -147,7 +153,9 @@ def start():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """Answer a follow-up question using RAG over the ingested session data."""
+    """Answer a question using the cached summary as grounding + conversation history +
+    semantically relevant evidence chunks. The summary is sent once (prepended to the
+    first message) and conversation history carries context forward on every subsequent call."""
     try:
         body = request.get_json() or {}
         question = body.get("question", "").strip()
@@ -158,17 +166,43 @@ def chat():
         if not question or not session_id:
             return jsonify({"error": "Missing question or session_id"}), 400
 
-        context_chunks = query_context(question, session_id)
-        context = "\n\n---\n\n".join(context_chunks)
+        # Retrieve only evidence chunks — the summary covers all transaction facts
+        ev_chunks = query_context(question, session_id)
+        ev_context = "\n\n---\n\n".join(ev_chunks) if ev_chunks else ""
+
+        summary = _session_to_summary.get(session_id, "")
+        history = _chat_history.get(history_key, [])
+
+        # Build the messages array.
+        # Summary is included once, prepended to the first user message, so the LLM
+        # always has the full transaction picture without repeating it every turn.
+        messages = [{"role": "system", "content": CHAT_SYSTEM}]
+
+        if not history:
+            # First question: ground the conversation with the summary
+            content = f"Transaction summary:\n{summary}"
+            if ev_context:
+                content += f"\n\nRelevant evidence:\n{ev_context}"
+            content += f"\n\nQuestion: {question}"
+            messages.append({"role": "user", "content": content})
+        else:
+            # Reconstruct conversation history; prepend summary only to the first user turn
+            for i, msg in enumerate(history):
+                role = "user" if msg["role"] == "user" else "assistant"
+                content = msg["content"]
+                if i == 0 and role == "user":
+                    content = f"Transaction summary:\n{summary}\n\nQuestion: {content}"
+                messages.append({"role": role, "content": content})
+            # Current question with fresh evidence context
+            content = f"Relevant evidence:\n{ev_context}\n\n" if ev_context else ""
+            content += f"Question: {question}"
+            messages.append({"role": "user", "content": content})
 
         chat_client, chat_deployment = create_client()
         response = chat_client.chat.completions.create(
             model=chat_deployment,
             temperature=0.2,
-            messages=[
-                {"role": "system", "content": CHAT_SYSTEM},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
-            ],
+            messages=messages,
         )
         raw = response.choices[0].message.content or ""
 
@@ -201,6 +235,20 @@ def history():
     if not session_id:
         return jsonify({"error": "Missing session_id"}), 400
     return jsonify({"messages": _chat_history.get(session_id, [])})
+
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    """Clear chat and suggestions history for a session."""
+    body = request.get_json() or {}
+    session_id = body.get("session_id", "").strip()
+    if not session_id:
+        return jsonify({"error": "Missing session_id"}), 400
+    with _history_lock:
+        _chat_history.pop(session_id, None)
+        _chat_history.pop(f"suggest_{session_id}", None)
+        HISTORY_FILE.write_text(json.dumps(_chat_history, indent=2), encoding="utf-8")
+    return jsonify({"ok": True})
 
 
 # Legacy endpoint — used by app.py CLI; no ingestion
