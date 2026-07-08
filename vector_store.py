@@ -71,10 +71,28 @@ def upsert_chunks(chunks: list[dict], namespace: str) -> None:
 
 def query_context(question: str, namespace: str, top_k: int = 5) -> list[str]:
     index = _get_index()
-    results = index.query(
-        vector=_embed([question])[0],
-        top_k=top_k,
+    question_vec = _embed([question])[0]
+
+    # Core transaction chunks (transaction, risk_flags, checklist, additional) are always
+    # included so the LLM has the full transaction picture — not just whatever the XLSX
+    # evidence chunks happen to score highest on similarity.
+    tx_results = index.query(
+        vector=question_vec,
+        top_k=10,
         namespace=namespace,
         include_metadata=True,
+        filter={"type": {"$ne": "evidence"}},
     )
-    return [m.metadata["text"] for m in results.matches]
+    tx_texts = [m.metadata["text"] for m in tx_results.matches]
+
+    # Separately retrieve the most semantically relevant evidence chunks
+    ev_results = index.query(
+        vector=question_vec,
+        top_k=3,
+        namespace=namespace,
+        include_metadata=True,
+        filter={"type": {"$eq": "evidence"}},
+    )
+    ev_texts = [m.metadata["text"] for m in ev_results.matches]
+
+    return tx_texts + ev_texts
