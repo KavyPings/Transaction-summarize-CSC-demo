@@ -30,7 +30,10 @@ _chat_history: dict = {}   # session_id -> [{role, content}]
 CHAT_SYSTEM = (
     "You are a transaction approval advisor. "
     "Answer the user's question using only the context provided. "
-    "Be concise and precise. If the answer is not in the context, say so."
+    "Be concise and precise. If the answer is not in the context, say so.\n\n"
+    "After your answer, on a new line write exactly 'FOLLOW_UP:' then list 2–3 short "
+    "follow-up questions a compliance reviewer might want to ask next, "
+    "one per line starting with '- '. Keep each question under 10 words."
 )
 
 
@@ -149,6 +152,7 @@ def chat():
         body = request.get_json() or {}
         question = body.get("question", "").strip()
         session_id = body.get("session_id", "").strip()
+        save_history = body.get("save", True)
 
         if not question or not session_id:
             return jsonify({"error": "Missing question or session_id"}), 400
@@ -165,12 +169,26 @@ def chat():
                 {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
             ],
         )
-        answer = response.choices[0].message.content or ""
+        raw = response.choices[0].message.content or ""
 
-        _append_history(session_id, "user", question)
-        _append_history(session_id, "assistant", answer)
+        # Split answer from LLM-suggested follow-up questions
+        if "\nFOLLOW_UP:" in raw:
+            answer_part, _, questions_part = raw.partition("\nFOLLOW_UP:")
+            answer = answer_part.strip()
+            questions = [
+                line.lstrip("- ").strip()
+                for line in questions_part.strip().splitlines()
+                if line.strip().startswith("-")
+            ]
+        else:
+            answer = raw.strip()
+            questions = []
 
-        return jsonify({"answer": answer})
+        if save_history:
+            _append_history(session_id, "user", question)
+            _append_history(session_id, "assistant", answer)
+
+        return jsonify({"answer": answer, "questions": questions})
 
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"Could not answer: {error}"}), 500

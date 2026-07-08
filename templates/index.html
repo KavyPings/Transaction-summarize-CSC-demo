@@ -26,7 +26,7 @@
 
     header h1 { margin: 0; font-size: 20px; font-weight: 600; }
 
-    #chat-btn {
+    .header-btn {
       background: #fff;
       color: #0a4d8c;
       border: none;
@@ -38,8 +38,42 @@
       white-space: nowrap;
     }
 
-    #chat-btn:hover { background: #dce8f5; }
-    #chat-btn:disabled { background: #9bb4cc; color: #fff; cursor: default; }
+    .header-btn:hover { background: #dce8f5; }
+    .header-btn:disabled { background: #9bb4cc; color: #fff; cursor: default; }
+
+    .chat-input-row {
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      border-top: 1px solid #e2e6ea;
+      background: #fafbfc;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 9px 12px;
+      font-size: 13px;
+      border: 1px solid #c8d0d8;
+      border-radius: 4px;
+      outline: none;
+    }
+    #chat-input:focus { border-color: #0a4d8c; }
+    #chat-input:disabled { background: #f3f6f9; }
+
+    #send-btn {
+      background: #0a4d8c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #send-btn:hover { background: #08407a; }
+    #send-btn:disabled { background: #9bb4cc; cursor: default; }
 
     .main { padding: 24px 28px; }
     .main h2 { margin: 0 0 16px; font-size: 18px; }
@@ -166,46 +200,51 @@
       font-style: italic;
     }
 
-    .chat-input-row {
+    .suggestions-area {
       flex-shrink: 0;
+      padding: 10px 20px 12px;
       display: flex;
-      gap: 8px;
-      padding: 12px 20px;
+      flex-wrap: wrap;
+      gap: 7px;
       border-top: 1px solid #e2e6ea;
       background: #fafbfc;
+      max-height: 130px;
+      overflow-y: auto;
     }
 
-    #chat-input {
-      flex: 1;
-      padding: 9px 12px;
-      font-size: 13px;
-      border: 1px solid #c8d0d8;
-      border-radius: 4px;
-      outline: none;
+    .suggestions-label {
+      width: 100%;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #9bb4cc;
+      margin-bottom: 2px;
     }
-    #chat-input:focus { border-color: #0a4d8c; }
-    #chat-input:disabled { background: #f3f6f9; }
 
-    #send-btn {
-      background: #0a4d8c;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 9px 18px;
-      font-size: 13px;
-      font-weight: 600;
+    .suggestion-btn {
+      background: #fff;
+      border: 1.5px solid #0a4d8c;
+      color: #0a4d8c;
+      border-radius: 14px;
+      padding: 5px 13px;
+      font-size: 12px;
+      font-family: inherit;
       cursor: pointer;
       white-space: nowrap;
     }
-    #send-btn:hover { background: #08407a; }
-    #send-btn:disabled { background: #9bb4cc; cursor: default; }
+    .suggestion-btn:hover:not(:disabled) { background: #dce8f5; }
+    .suggestion-btn:disabled { opacity: 0.4; cursor: default; }
   </style>
 </head>
 
 <body>
   <header>
     <h1>CSC Transaction Summary Demo</h1>
-    <button id="chat-btn" onclick="openChat()">Chat Bot</button>
+    <div style="display:flex;gap:10px">
+      <button id="suggest-btn" class="header-btn" onclick="openSuggestions()">Suggested Questions</button>
+      <button id="chat-btn" class="header-btn" onclick="openChat()">Chat Bot</button>
+    </div>
   </header>
 
   {% macro value_or_dash(v) -%}
@@ -286,21 +325,60 @@
       <!-- Chat below -->
       <div class="chat-label">Ask a question</div>
       <div id="chat-messages" class="chat-messages">
-        <div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start the conversation.</div>
+        <div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start.</div>
       </div>
       <div class="chat-input-row">
         <input id="chat-input" type="text" placeholder="Ask a question about this transaction…" disabled
-               onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendMessage(); }" />
+               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}" />
         <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Suggested Questions modal -->
+  <div id="suggest-modal" class="modal-overlay" onclick="handleSuggestOverlayClick(event)">
+    <div class="modal-box" style="width:62vw;height:74vh">
+      <div class="modal-header">
+        <span class="modal-title">Suggested Questions</span>
+        <button class="modal-close" onclick="closeSuggestModal()" title="Close">&times;</button>
+      </div>
+      <div id="suggest-messages" class="chat-messages">
+        <div class="chat-empty" id="suggest-empty">Click a question below to get started.</div>
+      </div>
+      <div id="suggestions-area" class="suggestions-area"></div>
     </div>
   </div>
 
   <script src="{{ url_for('static', filename='agent.js') }}"></script>
   <script>
     let sessionId = null;
+    let cachedSummary = null;
 
-    function addMessage(type, text) {
+    const INITIAL_QUESTIONS = [
+      "What is the overall recommendation?",
+      "Are there any sanctions or PEP hits?",
+      "What does the evidence show?",
+      "What are the key risk flags?",
+      "Does this transaction need escalation?",
+      "Is the bank balance sufficient?",
+      "Are all checklist items satisfied?",
+    ];
+
+    // Establish (or reuse) the session — shared by both modals
+    async function ensureSession() {
+      if (sessionId) return;
+      const data = await new PageAgent().send("/start");
+      if (data.session_id) {
+        sessionId = data.session_id;
+        cachedSummary = data.summary || null;
+      } else {
+        throw new Error(data.error || "Could not start session.");
+      }
+    }
+
+    // ── Chat Bot modal ──────────────────────────────────────────────
+
+    function addChatMessage(type, text) {
       const messages = document.getElementById("chat-messages");
       const empty = document.getElementById("chat-empty");
       if (empty) empty.remove();
@@ -323,34 +401,27 @@
       summary.className = "summary-panel placeholder";
       summary.textContent = "Loading…";
       document.getElementById("chat-modal").classList.add("open");
-      messages.innerHTML = '<div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start the conversation.</div>';
-      sessionId = null;
+      messages.innerHTML = '<div class="chat-empty" id="chat-empty">Summary will appear above. Ask a question to start.</div>';
       input.disabled = true;
       sendBtn.disabled = true;
 
       try {
-        const data = await new PageAgent().send("/start");
-        if (data.summary) {
-          summary.className = "summary-panel";
-          summary.textContent = data.summary;
-          sessionId = data.session_id;
+        await ensureSession();
+        summary.className = "summary-panel";
+        summary.textContent = cachedSummary || "";
 
-          // Restore previous chat messages for this session
-          try {
-            const histRes = await fetch(`/history?session_id=${sessionId}`);
-            const histData = await histRes.json();
-            for (const msg of histData.messages || []) {
-              addMessage(msg.role === "user" ? "user" : "bot", msg.content);
-            }
-          } catch (_) {}
+        // Restore saved chat history
+        try {
+          const histRes = await fetch(`/history?session_id=${sessionId}`);
+          const histData = await histRes.json();
+          for (const msg of histData.messages || []) {
+            addChatMessage(msg.role === "user" ? "user" : "bot", msg.content);
+          }
+        } catch (_) {}
 
-          input.disabled = false;
-          sendBtn.disabled = false;
-          input.focus();
-        } else {
-          summary.className = "summary-panel error";
-          summary.textContent = data.error || "Something went wrong.";
-        }
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
       } catch (err) {
         summary.className = "summary-panel error";
         summary.textContent = "Request failed: " + err;
@@ -365,12 +436,9 @@
       const question = input.value.trim();
       if (!question || !sessionId) return;
 
-      addMessage("user", question);
+      addChatMessage("user", question);
       input.value = "";
-
-      // Typing indicator
-      const typing = addMessage("bot", "…");
-
+      const typing = addChatMessage("bot", "…");
       input.disabled = true;
       sendBtn.disabled = true;
 
@@ -400,6 +468,96 @@
 
     function handleOverlayClick(event) {
       if (event.target === document.getElementById("chat-modal")) closeModal();
+    }
+
+    // ── Suggested Questions modal ───────────────────────────────────
+
+    function addSuggestMessage(type, text) {
+      const messages = document.getElementById("suggest-messages");
+      const empty = document.getElementById("suggest-empty");
+      if (empty) empty.remove();
+      const bubble = document.createElement("div");
+      bubble.className = `msg msg-${type}`;
+      bubble.textContent = text;
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+
+    function showSuggestions(questions) {
+      const area = document.getElementById("suggestions-area");
+      area.innerHTML = '<div class="suggestions-label">Suggested questions</div>';
+      for (const q of questions) {
+        const btn = document.createElement("button");
+        btn.className = "suggestion-btn";
+        btn.textContent = q;
+        btn.onclick = () => askQuestion(q);
+        area.appendChild(btn);
+      }
+    }
+
+    function setSuggestionsDisabled(disabled) {
+      document.querySelectorAll(".suggestion-btn").forEach(b => { b.disabled = disabled; });
+    }
+
+    async function openSuggestions() {
+      const btn = document.getElementById("suggest-btn");
+      const messages = document.getElementById("suggest-messages");
+      const area = document.getElementById("suggestions-area");
+
+      btn.disabled = true;
+      document.getElementById("suggest-modal").classList.add("open");
+      messages.innerHTML = '<div class="chat-empty" id="suggest-empty">Loading…</div>';
+      area.innerHTML = "";
+
+      try {
+        await ensureSession();
+        const empty = document.getElementById("suggest-empty");
+        if (empty) empty.textContent = "Click a question below to get started.";
+        showSuggestions(INITIAL_QUESTIONS);
+      } catch (err) {
+        const empty = document.getElementById("suggest-empty");
+        if (empty) { empty.style.color = "#b00020"; empty.textContent = "Error: " + err; }
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function askQuestion(question) {
+      if (!sessionId) return;
+      setSuggestionsDisabled(true);
+      addSuggestMessage("user", question);
+      const typing = addSuggestMessage("bot", "…");
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, session_id: sessionId, save: false }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          typing.className = "msg msg-error";
+          typing.textContent = data.error;
+          setSuggestionsDisabled(false);
+        } else {
+          typing.textContent = data.answer || "No response.";
+          showSuggestions(data.questions && data.questions.length ? data.questions : INITIAL_QUESTIONS);
+        }
+      } catch (err) {
+        typing.className = "msg msg-error";
+        typing.textContent = "Request failed: " + err;
+        setSuggestionsDisabled(false);
+      }
+      document.getElementById("suggest-messages").scrollTop = 9999;
+    }
+
+    function closeSuggestModal() {
+      document.getElementById("suggest-modal").classList.remove("open");
+    }
+
+    function handleSuggestOverlayClick(event) {
+      if (event.target === document.getElementById("suggest-modal")) closeSuggestModal();
     }
   </script>
 </body>
