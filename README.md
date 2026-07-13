@@ -54,7 +54,6 @@ Browser-side JS (static/universal-agent.js)
 
 ```bash
 git clone <repo-url>
-cd "transaction summarise"
 python -m venv .venv
 .venv\Scripts\activate      # Windows
 # source .venv/bin/activate  # Mac / Linux
