@@ -393,9 +393,9 @@
   <script>
     const agent = new UniversalPageAgent();
     let agentContextId = null;
-    let agentHistoryKey = null;
     let agentCachedSummary = null;
     let agentCachedQuestions = [];
+    let agentCachedMessages = [];  // [{role, text}] — replayed on modal reopen
 
     function addAgentMessage(type, text) {
       const messages = document.getElementById('agent-messages');
@@ -439,6 +439,18 @@
       document.querySelectorAll('#agent-modal .suggestion-btn').forEach(b => { b.disabled = disabled; });
     }
 
+    function replayAgentMessages() {
+      const messages = document.getElementById('agent-messages');
+      messages.innerHTML = '';
+      if (!agentCachedMessages.length) {
+        messages.innerHTML = '<div class="chat-empty" id="agent-empty">Click a question or type below to start.</div>';
+        return;
+      }
+      for (const msg of agentCachedMessages) {
+        addAgentMessage(msg.role, msg.text);
+      }
+    }
+
     async function openAgentModal() {
       const btn = document.getElementById('agent-btn');
       const summaryEl = document.getElementById('agent-summary');
@@ -451,27 +463,9 @@
       if (agentContextId) {
         summaryEl.className = 'agent-summary';
         summaryEl.textContent = agentCachedSummary || '';
-        document.getElementById('agent-messages').innerHTML =
-          '<div class="chat-empty" id="agent-empty">Restoring history…</div>';
         document.getElementById('agent-initial-pills').innerHTML = '';
         document.getElementById('agent-followup-section').style.display = 'none';
-
-        try {
-          const histRes = await fetch(`/history?session_id=${encodeURIComponent(agentHistoryKey)}`);
-          const histData = await histRes.json();
-          const msgs = histData.messages || [];
-          if (msgs.length) {
-            const empty = document.getElementById('agent-empty');
-            if (empty) empty.remove();
-            for (const msg of msgs) {
-              addAgentMessage(msg.role === 'user' ? 'user' : 'bot', msg.content);
-            }
-          } else {
-            const empty = document.getElementById('agent-empty');
-            if (empty) empty.textContent = 'Click a question or type below to start.';
-          }
-        } catch (_) {}
-
+        replayAgentMessages();
         renderAgentInitialQuestions(agentCachedQuestions);
         input.disabled = false;
         sendBtn.disabled = false;
@@ -490,7 +484,6 @@
           if (result.error) throw new Error(result.error);
 
           agentContextId = result.context_id;
-          agentHistoryKey = 'agent_' + agentContextId;
           agentCachedSummary = result.summary || '';
           agentCachedQuestions = result.questions || [];
 
@@ -518,12 +511,15 @@
       const typing = addAgentMessage('bot', '…');
 
       try {
-        const data = await agent.askQuestion(question, agentContextId, agentHistoryKey);
+        const data = await agent.askQuestion(question, agentContextId, agentCachedMessages);
         if (data.error) {
           typing.className = 'msg msg-error';
           typing.textContent = data.error;
         } else {
-          typing.textContent = data.answer || 'No response.';
+          const answer = data.answer || 'No response.';
+          typing.textContent = answer;
+          agentCachedMessages.push({ role: 'user', text: question });
+          agentCachedMessages.push({ role: 'bot', text: answer });
           showAgentFollowUpQuestions(data.questions);
         }
       } catch (err) {

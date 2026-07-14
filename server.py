@@ -2,7 +2,6 @@ import json
 import re
 import uuid
 from pathlib import Path
-from threading import Lock
 
 # pyrefly: ignore [missing-import]
 from flask import Flask, jsonify, render_template, request
@@ -11,45 +10,11 @@ from app import create_client
 from agent_prompt import AGENT_ANALYZE_PROMPT, AGENT_TRANSACTION_PROMPT, AGENT_CHAT_PROMPT
 from evidence_extractor import build_user_message
 
-# ── RAG pipeline (commented out) ────────────────────────────────────────────
-# The RAG pipeline embeds transaction evidence (PDFs/XLSXs) into Pinecone and
-# retrieves relevant chunks per question. It is disabled because at current
-# scale (1–3 evidence files) the Pinecone query latency (~200 ms) outweighs
-# the token savings. Re-enable when evidence files grow large or numerous.
-# See README § RAG Pipeline for full instructions.
-# Note: evidence_extractor.build_user_message (used above) is NOT part of RAG —
-# it extracts evidence text/images directly into the LLM prompt.
-#
-# from filter_data import build_summary_payload
-# from chunker import chunk_transaction, chunk_evidence
-# from vector_store import upsert_chunks, query_context, _get_embedder
-# ────────────────────────────────────────────────────────────────────────────
-
 app = Flask(__name__)
 
 TRANSACTION_DIR = Path("transactions")
-HISTORY_FILE = Path("chat_history.json")
 
-_history_lock = Lock()
 _agent_contexts: dict = {}   # context_id -> {page_context, summary, page_type, txn_id}
-_chat_history: dict = {}     # history_key -> [{role, content}]
-
-
-def _load_history() -> None:
-    global _chat_history
-    if HISTORY_FILE.exists():
-        try:
-            _chat_history = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            _chat_history = {}
-
-
-def _append_history(history_key: str, role: str, content: str) -> None:
-    with _history_lock:
-        if history_key not in _chat_history:
-            _chat_history[history_key] = []
-        _chat_history[history_key].append({"role": role, "content": content})
-        HISTORY_FILE.write_text(json.dumps(_chat_history, indent=2), encoding="utf-8")
 
 
 def list_transactions() -> list[dict]:
@@ -242,25 +207,6 @@ def agent_analyze():
             "txn_id": txn_id,
         }
 
-        # RAG: background Pinecone ingest — commented out
-        # if page_type == "transaction_detail" and txn_id:
-        #     def _ingest():
-        #         try:
-        #             data = load_transaction(txn_id)
-        #             payload = build_summary_payload(data)
-        #             chunks = chunk_transaction(payload)
-        #             for i, path in enumerate(data.get("evidence_files") or [], 1):
-        #                 label = f"Evidence {i} ({Path(path).suffix.lstrip('.').upper()})"
-        #                 if not is_image_file(path):
-        #                     try:
-        #                         chunks.extend(chunk_evidence(extract_evidence_text(path), label))
-        #                     except Exception:
-        #                         pass
-        #             upsert_chunks(chunks, context_id)
-        #         except Exception:
-        #             pass
-        #     threading.Thread(target=_ingest, daemon=True).start()
-
         return jsonify({"summary": summary, "questions": questions, "context_id": context_id})
 
     except Exception as error:  # noqa: BLE001
@@ -274,7 +220,7 @@ def agent_chat():
         body = request.get_json() or {}
         question = body.get("question", "").strip()
         context_id = body.get("context_id", "").strip()
-        history_key = body.get("history_key") or context_id
+        chat_history = body.get("chat_history") or []   # [{role, text}] from frontend cache
         nav_history = body.get("nav_history") or []
 
         if not question or not context_id:
@@ -300,37 +246,20 @@ def agent_chat():
             effective_context = page_context
             effective_summary = summary
 
-        # RAG: evidence retrieval from Pinecone — commented out
-        # if page_type == "transaction_detail":
-        #     ev_chunks = query_context(question, context_id)
-        #     ev_context = "\n\n---\n\n".join(ev_chunks) if ev_chunks else ""
-        ev_context = ""
-
-        history = _chat_history.get(history_key, [])
         ctx_text = json.dumps(effective_context, indent=2)
-
         messages = [{"role": "system", "content": AGENT_CHAT_PROMPT}]
 
-        if not history:
-            content = f"Page context:\n{ctx_text}\n\nSummary:\n{effective_summary}"
-            if ev_context:
-                content += f"\n\nRelevant evidence:\n{ev_context}"
-            content += f"\n\nQuestion: {question}"
+        if not chat_history:
+            content = f"Page context:\n{ctx_text}\n\nSummary:\n{effective_summary}\n\nQuestion: {question}"
             messages.append({"role": "user", "content": content})
         else:
-            for i, msg in enumerate(history):
+            for i, msg in enumerate(chat_history):
                 role = "user" if msg["role"] == "user" else "assistant"
-                content = msg["content"]
+                text = msg["text"]
                 if i == 0 and role == "user":
-                    content = (
-                        f"Page context:\n{ctx_text}\n\n"
-                        f"Summary:\n{effective_summary}\n\n"
-                        f"Question: {content}"
-                    )
-                messages.append({"role": role, "content": content})
-            content = f"Relevant evidence:\n{ev_context}\n\n" if ev_context else ""
-            content += f"Question: {question}"
-            messages.append({"role": "user", "content": content})
+                    text = f"Page context:\n{ctx_text}\n\nSummary:\n{effective_summary}\n\nQuestion: {text}"
+                messages.append({"role": role, "content": text})
+            messages.append({"role": "user", "content": f"Question: {question}"})
 
         chat_client, chat_deployment = create_client()
         response = chat_client.chat.completions.create(
@@ -352,25 +281,12 @@ def agent_chat():
             answer = raw.strip()
             follow_ups = []
 
-        _append_history(history_key, "user", question)
-        _append_history(history_key, "assistant", answer)
-
         return jsonify({"answer": answer, "questions": follow_ups, "nav_update": nav_update})
 
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"Could not answer: {error}"}), 500
 
 
-@app.route("/history", methods=["GET"])
-def history():
-    key = request.args.get("session_id", "").strip()
-    if not key:
-        return jsonify({"error": "Missing session_id"}), 400
-    return jsonify({"messages": _chat_history.get(key, [])})
-
-
 if __name__ == "__main__":
-    # RAG: _get_embedder()  # pre-loads sentence-transformer model — commented out
-    _load_history()
     print("Ready.")
     app.run(debug=False, port=5000)

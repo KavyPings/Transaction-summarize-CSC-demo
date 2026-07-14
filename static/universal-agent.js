@@ -126,7 +126,7 @@ class UniversalPageAgent {
     return res.json();
   }
 
-  async askQuestion(question, contextId, historyKey) {
+  async askQuestion(question, contextId, chatHistory) {
     const navHistory = JSON.parse(sessionStorage.getItem('agent_nav_history') || '[]');
     const res = await fetch('/agent/chat', {
       method: 'POST',
@@ -134,7 +134,7 @@ class UniversalPageAgent {
       body: JSON.stringify({
         question,
         context_id: contextId,
-        history_key: historyKey,
+        chat_history: chatHistory,
         nav_history: navHistory,
       }),
     });
