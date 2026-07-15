@@ -1,0 +1,358 @@
+@page "/transaction/{TxnId}"
+@model TransactionApproval.Pages.TransactionModel
+@using System.Text.Json
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transaction @Model.TxnId</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:#fff; color:#1a1a1a; }
+    header { background:#0a4d8c; color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; }
+    .header-left { display:flex; align-items:center; gap:16px; }
+    header h1 { margin:0; font-size:20px; font-weight:600; }
+    .back-link { color:#a8c8f0; text-decoration:none; font-size:14px; white-space:nowrap; }
+    .back-link:hover { color:#fff; }
+    .header-btn { background:#fff; color:#0a4d8c; border:none; border-radius:4px; padding:9px 20px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .header-btn:hover { background:#dce8f5; }
+    .header-btn:disabled { background:#9bb4cc; color:#fff; cursor:default; }
+    .main { padding:24px 28px; }
+    .main h2 { margin:0 0 16px; font-size:18px; }
+    .section { border:1px solid #e2e6ea; border-radius:6px; margin-bottom:18px; }
+    .section-title { background:#f3f6f9; padding:10px 16px; font-weight:600; font-size:14px; color:#0a4d8c; border-bottom:1px solid #e2e6ea; }
+    .row { display:flex; padding:8px 16px; border-bottom:1px solid #f0f2f4; font-size:14px; }
+    .row:last-child { border-bottom:none; }
+    .label { flex:0 0 240px; color:#55606b; }
+    .value { flex:1 1 auto; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#fff; border-radius:8px; width:82vw; height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.22); }
+    .modal-header { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:13px 20px; border-bottom:1px solid #e2e6ea; background:#f3f6f9; }
+    .modal-title { font-size:15px; font-weight:600; color:#0a4d8c; }
+    .modal-close { background:transparent; border:none; color:#55606b; font-size:22px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:4px; }
+    .modal-close:hover { background:#e2e6ea; color:#1a1a1a; }
+    .agent-body { display:flex; flex:1 1 auto; min-height:0; overflow:hidden; }
+    .agent-left { flex:0 0 37%; display:flex; flex-direction:column; border-right:2px solid #e2e6ea; background:#fafbfc; min-height:0; }
+    .agent-panel-label { flex-shrink:0; padding:8px 16px 4px; font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#6b7785; border-bottom:1px solid #f0f2f4; }
+    .agent-summary { flex:1 1 auto; overflow-y:auto; padding:16px 18px; white-space:pre-wrap; font-size:13px; line-height:1.75; color:#1a1a1a; }
+    .agent-summary.placeholder { color:#8899aa; font-style:italic; }
+    .agent-summary.error { color:#b00020; }
+    .agent-right { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .chat-messages { flex:1 1 auto; overflow-y:auto; padding:14px 20px; display:flex; flex-direction:column; gap:10px; }
+    .msg { max-width:82%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
+    .msg-bot   { align-self:flex-start; background:#f3f6f9; color:#1a1a1a; border-bottom-left-radius:4px; }
+    .msg-user  { align-self:flex-end;   background:#0a4d8c; color:#fff;    border-bottom-right-radius:4px; }
+    .msg-error { align-self:flex-start; background:#fdecea; color:#b00020; border-bottom-left-radius:4px; }
+    .chat-empty { flex:1; display:flex; align-items:center; justify-content:center; color:#9bb4cc; font-size:13px; font-style:italic; }
+    .suggestions-area { flex-shrink:0; padding:8px 20px 10px; display:flex; flex-direction:column; gap:6px; border-top:1px solid #e2e6ea; background:#fafbfc; max-height:130px; overflow-y:auto; }
+    .suggestions-section { display:flex; flex-direction:column; gap:5px; }
+    .suggestions-section + .suggestions-section { padding-top:8px; border-top:1px dashed #d0d8e0; }
+    .suggestions-pills { display:flex; flex-wrap:wrap; gap:6px; }
+    .suggestions-label { font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#9bb4cc; }
+    .suggestions-label.followup { color:#0a4d8c; }
+    .suggestion-btn { background:#fff; border:1.5px solid #0a4d8c; color:#0a4d8c; border-radius:14px; padding:5px 13px; font-size:12px; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .suggestion-btn:hover:not(:disabled) { background:#dce8f5; }
+    .suggestion-btn:disabled { opacity:0.4; cursor:default; }
+    .chat-input-row { flex-shrink:0; display:flex; gap:8px; padding:12px 20px; border-top:1px solid #e2e6ea; background:#fafbfc; }
+    #agent-input { flex:1; padding:9px 12px; font-size:13px; border:1px solid #c8d0d8; border-radius:4px; outline:none; }
+    #agent-input:focus { border-color:#0a4d8c; }
+    #agent-input:disabled { background:#f3f6f9; }
+    #agent-send-btn { background:#0a4d8c; color:#fff; border:none; border-radius:4px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    #agent-send-btn:hover { background:#08407a; }
+    #agent-send-btn:disabled { background:#9bb4cc; cursor:default; }
+  </style>
+</head>
+
+<body data-page-type="transaction_detail"
+      data-txn-id="@Model.TxnId"
+      data-evidence-count="@Model.EvidenceCount">
+
+  <header>
+    <div class="header-left">
+      <a href="/" class="back-link">&#8592; Transactions</a>
+      <h1>Transaction Details &mdash; @Model.TxnId</h1>
+    </div>
+    <button id="agent-btn" class="header-btn" onclick="openAgentModal()">Agent</button>
+  </header>
+
+  <div class="main">
+    <h2>Transaction Details</h2>
+
+    @if (Model.TxnData.ValueKind == JsonValueKind.Object)
+    {
+      <div class="section">
+        <div class="section-title">Transaction Information</div>
+        @foreach (var prop in Model.TxnData.EnumerateObject())
+        {
+          <div class="row">
+            <div class="label">@prop.Name</div>
+            <div class="value">@Model.ValueOrDash(prop.Value)</div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (Model.OgsData.ValueKind == JsonValueKind.Object)
+    {
+      <div class="section">
+        <div class="section-title">Risk Category Details</div>
+        @foreach (var prop in Model.OgsData.EnumerateObject())
+        {
+          <div class="row">
+            <div class="label">@prop.Name</div>
+            <div class="value">@Model.ValueOrDash(prop.Value)</div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (Model.ChecklistsData.ValueKind == JsonValueKind.Object)
+    {
+      <div class="section">
+        <div class="section-title">Checklist</div>
+        @foreach (var codeEntry in Model.ChecklistsData.EnumerateObject())
+        {
+          @if (codeEntry.Value.ValueKind == JsonValueKind.Array)
+          {
+            @foreach (var item in codeEntry.Value.EnumerateArray())
+            {
+              var itemText = item.TryGetProperty("Item", out var itemProp) ? (itemProp.GetString() ?? "Question") : "Question";
+              var ans = item.TryGetProperty("Ans", out var ansProp) ? ansProp : default;
+              var comment = item.TryGetProperty("Comment", out var commentProp) ? commentProp.GetString() : null;
+              <div class="row">
+                <div class="label">@itemText</div>
+                <div class="value">
+                  @Model.ValueOrDash(ans)@(string.IsNullOrEmpty(comment) ? "" : $" — {comment}")
+                </div>
+              </div>
+            }
+          }
+        }
+      </div>
+    }
+
+    @if (Model.AdditionalData.ValueKind == JsonValueKind.Object)
+    {
+      <div class="section">
+        <div class="section-title">Additional Information</div>
+        @foreach (var codeEntry in Model.AdditionalData.EnumerateObject())
+        {
+          @if (codeEntry.Value.ValueKind == JsonValueKind.Object)
+          {
+            @foreach (var prop in codeEntry.Value.EnumerateObject())
+            {
+              <div class="row">
+                <div class="label">@prop.Name</div>
+                <div class="value">@Model.ValueOrDash(prop.Value)</div>
+              </div>
+            }
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Agent modal -->
+  <div id="agent-modal" class="modal-overlay" onclick="handleAgentOverlayClick(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Agent &mdash; @Model.TxnId</span>
+        <button class="modal-close" onclick="closeAgentModal()" title="Close">&times;</button>
+      </div>
+      <div class="agent-body">
+        <div class="agent-left">
+          <div class="agent-panel-label">Analysis</div>
+          <div id="agent-summary" class="agent-summary placeholder">Analysing transaction&hellip;</div>
+        </div>
+        <div class="agent-right">
+          <div class="agent-panel-label" style="border-bottom:1px solid #f0f2f4;padding:8px 20px 4px">Ask a question</div>
+          <div id="agent-messages" class="chat-messages">
+            <div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>
+          </div>
+          <div id="agent-questions" class="suggestions-area">
+            <div class="suggestions-section">
+              <div class="suggestions-label">Suggested questions</div>
+              <div id="agent-initial-pills" class="suggestions-pills"></div>
+            </div>
+            <div id="agent-followup-section" class="suggestions-section" style="display:none">
+              <div class="suggestions-label followup">Follow-up questions</div>
+              <div id="agent-followup-pills" class="suggestions-pills"></div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input id="agent-input" type="text" placeholder="Ask anything about this transaction&hellip;" disabled
+                   onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSendMessage();}" />
+            <button id="agent-send-btn" onclick="agentSendMessage()" disabled>Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="~/js/universal-agent.js"></script>
+  <script>
+    const agent = new UniversalPageAgent();
+    let agentContextId = null;
+    let agentCachedSummary = null;
+    let agentCachedQuestions = [];
+    let agentCachedMessages = [];
+
+    function addAgentMessage(type, text) {
+      const messages = document.getElementById('agent-messages');
+      const empty = document.getElementById('agent-empty');
+      if (empty) empty.remove();
+      const bubble = document.createElement('div');
+      bubble.className = `msg msg-${type}`;
+      bubble.textContent = text;
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+
+    function makeAgentPill(text, container) {
+      const btn = document.createElement('button');
+      btn.className = 'suggestion-btn';
+      btn.textContent = text;
+      btn.onclick = () => agentAskQuestion(text);
+      container.appendChild(btn);
+    }
+
+    function renderAgentInitialQuestions(questions) {
+      const pills = document.getElementById('agent-initial-pills');
+      pills.innerHTML = '';
+      questions.forEach(q => makeAgentPill(q, pills));
+    }
+
+    function showAgentFollowUpQuestions(questions) {
+      const area = document.getElementById('agent-questions');
+      const section = document.getElementById('agent-followup-section');
+      const pills = document.getElementById('agent-followup-pills');
+      pills.innerHTML = '';
+      if (questions && questions.length) {
+        questions.forEach(q => makeAgentPill(q, pills));
+        area.prepend(section);
+        section.style.display = '';
+      }
+    }
+
+    function setAgentDisabled(disabled) {
+      document.querySelectorAll('#agent-modal .suggestion-btn').forEach(b => { b.disabled = disabled; });
+    }
+
+    function replayAgentMessages() {
+      const messages = document.getElementById('agent-messages');
+      messages.innerHTML = '';
+      if (!agentCachedMessages.length) {
+        messages.innerHTML = '<div class="chat-empty" id="agent-empty">Click a question or type below to start.</div>';
+        return;
+      }
+      for (const msg of agentCachedMessages) {
+        addAgentMessage(msg.role, msg.text);
+      }
+    }
+
+    async function openAgentModal() {
+      const btn = document.getElementById('agent-btn');
+      const summaryEl = document.getElementById('agent-summary');
+      const input = document.getElementById('agent-input');
+      const sendBtn = document.getElementById('agent-send-btn');
+
+      btn.disabled = true;
+      document.getElementById('agent-modal').classList.add('open');
+
+      if (agentContextId) {
+        summaryEl.className = 'agent-summary';
+        summaryEl.textContent = agentCachedSummary || '';
+        document.getElementById('agent-initial-pills').innerHTML = '';
+        document.getElementById('agent-followup-section').style.display = 'none';
+        replayAgentMessages();
+        renderAgentInitialQuestions(agentCachedQuestions);
+        input.disabled = false;
+        sendBtn.disabled = false;
+      } else {
+        summaryEl.className = 'agent-summary placeholder';
+        summaryEl.textContent = 'Analysing transaction…';
+        document.getElementById('agent-messages').innerHTML =
+          '<div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>';
+        document.getElementById('agent-initial-pills').innerHTML = '';
+        document.getElementById('agent-followup-section').style.display = 'none';
+        input.disabled = true;
+        sendBtn.disabled = true;
+
+        try {
+          const result = await agent.analyzeCurrentPage();
+          if (result.error) throw new Error(result.error);
+
+          agentContextId = result.context_id;
+          agentCachedSummary = result.summary || '';
+          agentCachedQuestions = result.questions || [];
+
+          summaryEl.className = 'agent-summary';
+          summaryEl.textContent = agentCachedSummary;
+          renderAgentInitialQuestions(agentCachedQuestions);
+          input.disabled = false;
+          sendBtn.disabled = false;
+          input.focus();
+        } catch (err) {
+          summaryEl.className = 'agent-summary error';
+          summaryEl.textContent = 'Error: ' + err;
+        }
+      }
+
+      btn.disabled = false;
+    }
+
+    async function agentAskQuestion(question) {
+      if (!agentContextId) return;
+      setAgentDisabled(true);
+      document.getElementById('agent-input').disabled = true;
+      document.getElementById('agent-send-btn').disabled = true;
+      addAgentMessage('user', question);
+      const typing = addAgentMessage('bot', '…');
+
+      try {
+        const data = await agent.askQuestion(question, agentContextId, agentCachedMessages);
+        if (data.error) {
+          typing.className = 'msg msg-error';
+          typing.textContent = data.error;
+        } else {
+          const answer = data.answer || 'No response.';
+          typing.textContent = answer;
+          agentCachedMessages.push({ role: 'user', text: question });
+          agentCachedMessages.push({ role: 'bot', text: answer });
+          showAgentFollowUpQuestions(data.questions);
+        }
+      } catch (err) {
+        typing.className = 'msg msg-error';
+        typing.textContent = 'Request failed: ' + err;
+      } finally {
+        setAgentDisabled(false);
+        document.getElementById('agent-input').disabled = false;
+        document.getElementById('agent-send-btn').disabled = false;
+        document.getElementById('agent-messages').scrollTop = 9999;
+      }
+    }
+
+    async function agentSendMessage() {
+      const input = document.getElementById('agent-input');
+      const question = input.value.trim();
+      if (!question || !agentContextId) return;
+      input.value = '';
+      await agentAskQuestion(question);
+    }
+
+    function closeAgentModal() {
+      document.getElementById('agent-modal').classList.remove('open');
+    }
+
+    function handleAgentOverlayClick(event) {
+      if (event.target === document.getElementById('agent-modal')) closeAgentModal();
+    }
+  </script>
+</body>
+</html>

@@ -7,3 +7,8 @@ sanitized_payload.json
 transaction.json
 transactions/
 summary_cache.json
+
+# .NET
+TransactionApproval/bin/
+TransactionApproval/obj/
+TransactionApproval/appsettings.Development.json
