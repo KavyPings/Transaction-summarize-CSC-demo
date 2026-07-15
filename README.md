@@ -1,6 +1,6 @@
 # Transaction Approval System
 
-An internal tool for reviewing and approving financial transactions. A Flask web app backed by Azure OpenAI GPT-4.1 that reads structured transaction data and lets compliance reviewers interact with an AI agent directly inside the UI.
+An internal tool for reviewing and approving financial transactions. An ASP.NET Core web app backed by Azure OpenAI GPT-4.1 that reads structured transaction data and lets compliance reviewers interact with an AI agent directly inside the UI.
 
 ---
 
@@ -20,18 +20,18 @@ An internal tool for reviewing and approving financial transactions. A Flask web
 
 ```
 Browser
-  │  GET /                    → list.html        (transaction list)
-  │  GET /transaction/<id>    → transaction.html  (detail page)
-  │  POST /agent/analyze      ← buildContext() reads DOM, sends structured JSON
-  │  POST /agent/chat         ← askQuestion() sends question + visible chat history
+  │  GET /                       → Index.cshtml      (transaction list)
+  │  GET /transaction/{id}       → Transaction.cshtml (detail page)
+  │  POST /agent/analyze         ← buildContext() reads DOM, sends structured JSON
+  │  POST /agent/chat            ← askQuestion() sends question + visible chat history
   │
-Flask (server.py)
+ASP.NET Core (Program.cs)
   │
-  ├── Azure OpenAI GPT-4.1   (chat completions — summary, Q&A, follow-ups)
-  ├── evidence_extractor.py  (extracts text/images from evidence files into LLM prompt)
-  └── transactions/<id>.json  (one file per transaction, gitignored)
+  ├── Azure OpenAI GPT-4.1       (chat completions — summary, Q&A, follow-ups)
+  ├── EvidenceExtractorService   (extracts text/images from evidence files into LLM prompt)
+  └── transactions/<id>.json     (one file per transaction, gitignored)
 
-Browser-side JS (static/universal-agent.js)
+Browser-side JS (wwwroot/js/universal-agent.js)
   ├── buildContext()       reads page DOM → structured JSON (not raw HTML)
   ├── analyzeCurrentPage() → POST /agent/analyze
   └── askQuestion()        → POST /agent/chat (+ sessionStorage nav history)
@@ -41,49 +41,38 @@ Browser-side JS (static/universal-agent.js)
 
 ## Prerequisites
 
-- Python 3.11+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - An **Azure OpenAI** resource with a GPT-4.1 deployment
-- Corporate SSL certificates handled automatically via `truststore`
 
 ---
 
 ## Setup
 
-### 1. Clone and create a virtual environment
+### 1. Clone
 
 ```bash
 git clone <repo-url>
-python -m venv .venv
-.venv\Scripts\activate      # Windows
-# source .venv/bin/activate  # Mac / Linux
+cd "transaction summarise"
 ```
 
-### 2. Install dependencies
+### 2. Fill in credentials
 
-```bash
-pip install flask openai python-dotenv truststore
+Open `TransactionApproval/appsettings.Development.json` (gitignored — never committed) and fill in your Azure OpenAI details:
+
+```json
+{
+  "AzureOpenAI": {
+    "Endpoint":   "https://<your-resource>.openai.azure.com/",
+    "ApiKey":     "<your-api-key>",
+    "ApiVersion": "2024-12-01-preview",
+    "Deployment": "<your-deployment-name>"
+  }
+}
 ```
 
-To support evidence file extraction (XLSX, PDF, MSG), also install:
+### 3. Add transaction files
 
-```bash
-pip install openpyxl pdfplumber extract-msg
-```
-
-### 3. Create a `.env` file
-
-Create `.env` in the project root (it is gitignored):
-
-```env
-AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
-AZURE_OPENAI_API_KEY=<your-key>
-AZURE_OPENAI_API_VERSION=2024-12-01-preview
-AZURE_OPENAI_DEPLOYMENT=<your-deployment-name>
-```
-
-### 4. Add transaction files
-
-Create a `transactions/` directory (gitignored) and drop in one JSON file per transaction, named by transaction ID:
+Create a `transactions/` directory (gitignored) in the project root and drop in one JSON file per transaction named by transaction ID:
 
 ```
 transactions/
@@ -92,13 +81,42 @@ transactions/
   ...
 ```
 
-### 5. Run the server
+### 4. Run
 
 ```bash
-python server.py
+cd TransactionApproval
+dotnet run
 ```
 
 Open `http://localhost:5000` in a browser.
+
+---
+
+## Project Structure
+
+```
+TransactionApproval/
+├── Program.cs                        ← app startup + /agent/analyze + /agent/chat endpoints
+├── appsettings.json                  ← default config (no secrets)
+├── appsettings.Development.json      ← local secrets (gitignored — you fill this in)
+├── Prompts/
+│   └── AgentPrompts.cs               ← system prompts for analyze, transaction, and chat
+├── Models/
+│   ├── AgentContext.cs               ← in-memory session model
+│   ├── NavUpdate.cs                  ← navigation agent response model
+│   └── TransactionSummary.cs         ← list page row model
+├── Services/
+│   ├── AzureOpenAiService.cs         ← Azure OpenAI client
+│   ├── TransactionService.cs         ← loads transactions, builds context, nav agent
+│   ├── EvidenceExtractorService.cs   ← extracts XLSX / PDF / MSG / image content
+│   ├── AgentContextStore.cs          ← in-memory context store (ConcurrentDictionary)
+│   └── AgentService.cs               ← parses LLM responses (SUMMARY/QUESTIONS/FOLLOW_UP)
+├── Pages/
+│   ├── Index.cshtml + .cs            ← transaction list page
+│   └── Transaction.cshtml + .cs      ← transaction detail page
+└── wwwroot/
+    └── js/universal-agent.js         ← browser agent (buildContext, analyzeCurrentPage, askQuestion)
+```
 
 ---
 
@@ -128,10 +146,8 @@ When a question mentions a transaction ID (pattern `ATXN\d+`) that is not the cu
 
 The current approach sends the full evidence content directly into the LLM prompt on every `/agent/analyze` call. This works well for the typical case of 1–3 small evidence files per transaction, and requires no additional infrastructure.
 
-If usage grows to the point where evidence files become large or numerous, a RAG (Retrieval-Augmented Generation) pipeline would help by embedding evidence chunks into a vector store (e.g. Pinecone) and retrieving only the most relevant chunks per question, rather than sending everything every time. Consider this when:
+If usage grows to the point where evidence files become large or numerous, a RAG (Retrieval-Augmented Generation) pipeline would help by embedding evidence chunks into a vector store and retrieving only the most relevant chunks per question, rather than sending everything every time. Consider this when:
 
 - Evidence files regularly exceed 10+ pages each.
 - Users ask questions whose answers are buried deep in evidence documents rather than in the structured transaction fields.
 - Token costs from large evidence payloads become significant.
-
-A RAG implementation would involve: chunking evidence text (`chunker.py` pattern), embedding with a local model such as `sentence-transformers/all-MiniLM-L6-v2`, upserting into Pinecone, and querying top-k chunks per question in `/agent/chat`.
