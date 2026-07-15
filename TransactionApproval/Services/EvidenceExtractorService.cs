@@ -58,10 +58,19 @@ public class EvidenceExtractorService
             if (IsImageFile(path))
             {
                 parts.Add(ChatMessageContentPart.CreateTextPart($"\n\n{label}:"));
-                var bytes = File.ReadAllBytes(path);
-                var mime = MimeTypes.GetValueOrDefault(Path.GetExtension(path), "image/png");
-                parts.Add(ChatMessageContentPart.CreateImagePart(
-                    BinaryData.FromBytes(bytes), mime, ChatImageDetailLevel.High));
+                try
+                {
+                    var bytes = File.ReadAllBytes(path);
+                    var mime = MimeTypes.GetValueOrDefault(Path.GetExtension(path), "image/png");
+                    parts.Add(ChatMessageContentPart.CreateImagePart(
+                        BinaryData.FromBytes(bytes), mime, ChatImageDetailLevel.High));
+                }
+                catch (Exception ex)
+                {
+                    // Degrade gracefully (matching the text-evidence branch) so a missing or
+                    // unreadable image file can't take down the whole /agent/analyze request.
+                    parts.Add(ChatMessageContentPart.CreateTextPart($"[Could not load image — {ex.Message}]"));
+                }
             }
             else
             {

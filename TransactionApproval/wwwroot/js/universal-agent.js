@@ -140,8 +140,12 @@ class UniversalPageAgent {
     });
     const data = await res.json();
     if (data.nav_update) {
-      navHistory.push({ id: data.nav_update.id, context: data.nav_update.context });
-      sessionStorage.setItem('agent_nav_history', JSON.stringify(navHistory));
+      const alreadyKnown = navHistory.some(
+        n => n.id.toUpperCase() === data.nav_update.id.toUpperCase());
+      if (!alreadyKnown) {
+        navHistory.push({ id: data.nav_update.id, context: data.nav_update.context });
+        sessionStorage.setItem('agent_nav_history', JSON.stringify(navHistory));
+      }
     }
     return data;
   }

@@ -125,6 +125,7 @@ app.MapPost("/agent/chat", async (
     HttpRequest request,
     AzureOpenAiService openAi,
     TransactionService txnSvc,
+    EvidenceExtractorService evidenceSvc,
     AgentContextStore contextStore) =>
 {
     JsonElement body;
@@ -179,17 +180,37 @@ app.MapPost("/agent/chat", async (
     var ctxText = stored.PageContextJson;
     var effectiveSummary = stored.Summary;
 
-    try
-    {
-        navUpdate = txnSvc.DetectNavTarget(question, stored.PageContextJson, navHistory);
-    }
-    catch { }
+    navUpdate = txnSvc.DetectNavTarget(question, stored.PageContextJson, navHistory);
 
     if (navUpdate != null)
     {
         var navCtxJson = JsonSerializer.Serialize(navUpdate.Context, new JsonSerializerOptions { WriteIndented = true });
         ctxText = navCtxJson;
         effectiveSummary = $"[Data for transaction {navUpdate.Id}]\n{navCtxJson}";
+
+        // Extract evidence file contents so the LLM can answer questions about them,
+        // mirroring what /agent/analyze does for transaction detail pages.
+        try
+        {
+            using var txnDoc = txnSvc.LoadTransaction(navUpdate.Id);
+            if (txnDoc != null)
+            {
+                var evidenceFiles = txnSvc.GetEvidenceFiles(txnDoc);
+                for (int i = 0; i < evidenceFiles.Count; i++)
+                {
+                    var filePath = evidenceFiles[i];
+                    var label = $"Evidence {i + 1} ({Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant()})";
+                    if (evidenceSvc.IsImageFile(filePath))
+                        ctxText += $"\n\n{label}: [image — open the transaction page for visual analysis]";
+                    else
+                    {
+                        try { ctxText += $"\n\n{label}:\n{evidenceSvc.ExtractText(filePath)}"; }
+                        catch (Exception ex) { ctxText += $"\n\n{label}: [could not extract — {ex.Message}]"; }
+                    }
+                }
+            }
+        }
+        catch { }
     }
 
     try

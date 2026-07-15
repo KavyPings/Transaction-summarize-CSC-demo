@@ -69,7 +69,10 @@ public class TransactionService
 
     public NavUpdate? DetectNavTarget(string question, string pageContextJson, List<NavHistoryItem> navHistory)
     {
-        var idsInHistory = navHistory.Select(n => n.Id.ToUpperInvariant()).ToHashSet();
+        // TryAdd keeps first occurrence; tolerates duplicates from stale sessionStorage
+        var historyById = new Dictionary<string, NavHistoryItem>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in navHistory)
+            historyById.TryAdd(item.Id.ToUpperInvariant(), item);
 
         string currentId = "";
         try
@@ -85,8 +88,13 @@ public class TransactionService
         foreach (Match match in Regex.Matches(question, @"ATXN\d+", RegexOptions.IgnoreCase))
         {
             var mid = match.Value.ToUpperInvariant();
-            if (mid == currentId || idsInHistory.Contains(mid)) continue;
+            if (mid == currentId) continue;
 
+            // Already seen — reuse cached context rather than dropping it
+            if (historyById.TryGetValue(mid, out var cached))
+                return new NavUpdate { Id = mid, Context = cached.Context };
+
+            // New transaction — load from file
             var path = Path.Combine(_transactionsPath, $"{mid}.json");
             if (!File.Exists(path)) continue;
 

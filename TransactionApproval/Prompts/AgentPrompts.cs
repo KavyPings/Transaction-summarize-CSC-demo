@@ -10,7 +10,7 @@ public static class AgentPrompts
         "QUESTIONS:\n" +
         "- <question 1>\n" +
         "- <question 2>\n" +
-        "Generate up to 5 questions, answerable or determinable (indirectly via logic) from the data provided. " +
+        "Generate up to 5 questions (under 12 words each), answerable or determinable (indirectly via logic) from the data provided. " +
         "Do not ask obvious questions that are already answered in the data. Prefer questions that would help the user make a decision instead of DIRECTLY picking from the data. " +
         "Do not ask about information absent from the JSON. Be concise and factual.";
 
@@ -36,7 +36,7 @@ public static class AgentPrompts
         "QUESTIONS:\n" +
         "- <question 1>\n" +
         "- <question 2>\n" +
-        "Generate up to 5 short questions answerable or determinable (indirectly via logic) from the data provided. " +
+        "Generate up to 5 short questions (under 12 words each) answerable or determinable (indirectly via logic) from the data provided. " +
         "Do not ask obvious questions that are already answered in the data. Prefer questions that would help the user make a decision instead of DIRECTLY picking from the data. " +
         "Do not ask about information absent from the provided data.\n\n" +
         "Rules: Use only provided data. Do not invent facts. Be concise and professional.";
