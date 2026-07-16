@@ -161,8 +161,8 @@
 
   <script src="~/js/universal-agent.js"></script>
   <script>
-    const agent = new UniversalPageAgent();
-    let agentContextId = null;
+    const agent = new PageAgent();
+    let agentReady = false;
     let agentCachedSummary = null;
     let agentCachedQuestions = [];
     let agentCachedMessages = [];
@@ -230,7 +230,7 @@
       btn.disabled = true;
       document.getElementById('agent-modal').classList.add('open');
 
-      if (agentContextId) {
+      if (agentReady) {
         summaryEl.className = 'agent-summary';
         summaryEl.textContent = agentCachedSummary || '';
         document.getElementById('agent-initial-pills').innerHTML = '';
@@ -250,10 +250,10 @@
         sendBtn.disabled = true;
 
         try {
-          const result = await agent.analyzeCurrentPage();
+          const result = await agent.start();
           if (result.error) throw new Error(result.error);
 
-          agentContextId = result.context_id;
+          agentReady = true;
           agentCachedSummary = result.summary || '';
           agentCachedQuestions = result.questions || [];
 
@@ -272,7 +272,7 @@
     }
 
     async function agentAskQuestion(question) {
-      if (!agentContextId) return;
+      if (!agentReady) return;
       setAgentDisabled(true);
       document.getElementById('agent-input').disabled = true;
       document.getElementById('agent-send-btn').disabled = true;
@@ -280,7 +280,7 @@
       const typing = addAgentMessage('bot', '…');
 
       try {
-        const data = await agent.askQuestion(question, agentContextId, agentCachedMessages);
+        const data = await agent.ask(question, agentCachedMessages);
         if (data.error) {
           typing.className = 'msg msg-error';
           typing.textContent = data.error;
@@ -305,7 +305,7 @@
     async function agentSendMessage() {
       const input = document.getElementById('agent-input');
       const question = input.value.trim();
-      if (!question || !agentContextId) return;
+      if (!question || !agentReady) return;
       input.value = '';
       await agentAskQuestion(question);
     }

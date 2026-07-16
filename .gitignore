@@ -6,9 +6,15 @@ summary_cache.json
 # .NET build output
 TransactionApproval/bin/
 TransactionApproval/obj/
+TransactionMcp/bin/
+TransactionMcp/obj/
 
 # .NET secrets (fill in appsettings.Development.json locally — never commit)
 TransactionApproval/appsettings.Development.json
+TransactionMcp/appsettings.Development.json
+
+# Tesseract OCR model data (large binary — download separately)
+TransactionMcp/tessdata/
 
 # Misc
 .tmp/

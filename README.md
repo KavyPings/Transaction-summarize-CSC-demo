@@ -9,10 +9,9 @@ An internal tool for reviewing and approving financial transactions. An ASP.NET 
 - **Transaction list** — landing page showing all pending transactions (ID, client, entity, amount, date, status, risk rating, evidence count).
 - **Transaction detail** — full breakdown of a single transaction: transaction info, OGS risk flags, checklist answers, and additional information.
 - **Page Agent** — a context-aware AI panel available on every page. Click **Agent** to:
-  - Get an instant AI-generated summary of whatever page you are on.
-  - Receive suggested questions relevant to that page's data.
-  - Ask follow-up questions in a chat; the agent remembers the conversation for as long as you stay on the page.
-  - Ask about a specific transaction by ID from any page (e.g. "What is the risk on ATXN000001?") — the navigation agent silently reads that transaction's file and answers without requiring you to navigate away.
+  - Get an instant AI-generated compliance summary of the current transaction.
+  - Receive suggested questions relevant to the transaction.
+  - Ask follow-up questions in a chat; ask about any transaction by ID from any page.
 
 ---
 
@@ -20,29 +19,41 @@ An internal tool for reviewing and approving financial transactions. An ASP.NET 
 
 ```
 Browser
-  │  GET /                       → Index.cshtml      (transaction list)
-  │  GET /transaction/{id}       → Transaction.cshtml (detail page)
-  │  POST /agent/analyze         ← buildContext() reads DOM, sends structured JSON
-  │  POST /agent/chat            ← askQuestion() sends question + visible chat history
+  │  GET /                       → Index.cshtml          (transaction list)
+  │  GET /transaction/{id}       → Transaction.cshtml     (detail page)
+  │  POST /agent/start           → agentic loop (LLM calls tools)  → summary + questions
+  │  POST /agent/chat            → agentic loop (LLM calls tools)  → answer + follow-ups
   │
-ASP.NET Core (Program.cs)
+ASP.NET Core — TransactionApproval/ (port 5000)
+  │  McpClientService            connects to MCP server, routes tool calls
+  │  AzureOpenAiService          Azure OpenAI GPT-4.1 chat completions
+  │  TransactionService          loads transaction JSON for page rendering only
   │
-  ├── Azure OpenAI GPT-4.1       (chat completions — summary, Q&A, follow-ups)
-  ├── EvidenceExtractorService   (extracts text/images from evidence files into LLM prompt)
-  └── transactions/<id>.json     (one file per transaction, gitignored)
-
-Browser-side JS (wwwroot/js/universal-agent.js)
-  ├── buildContext()       reads page DOM → structured JSON (not raw HTML)
-  ├── analyzeCurrentPage() → POST /agent/analyze
-  └── askQuestion()        → POST /agent/chat (+ sessionStorage nav history)
+  │  (MCP protocol — HTTP/SSE)
+  │
+MCP Server — TransactionMcp/ (port 5001)
+  │  list_transactions           returns all transaction summaries as JSON
+  │  get_transaction             returns full transaction data + extracted evidence text
+  │  get_evidence                returns text of a single evidence file by index
+  │
+  │  LocalFileDataService        reads from transactions/*.json  (current)
+  │  PortalApiDataService        calls portal REST APIs          (switch via config)
+  │  EvidenceExtractorService    XLSX, PDF, MSG, images (OCR via Tesseract)
 ```
+
+**Key properties:**
+- LLM never sees portal credentials — MCP server holds them.
+- LLM fetches data on demand via tool calls (no pre-built DOM dump).
+- Browser sends only `{ question, page: {pageType, txnId}, chat_history }` — no page scraping.
+- No server-side session state; chat history lives in the browser.
 
 ---
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - An **Azure OpenAI** resource with a GPT-4.1 deployment
+- (Optional) Tesseract OCR language data for image evidence extraction
 
 ---
 
@@ -55,9 +66,9 @@ git clone <repo-url>
 cd "transaction summarise"
 ```
 
-### 2. Fill in credentials
+### 2. Configure web app credentials
 
-Open `TransactionApproval/appsettings.Development.json` (gitignored — never committed) and fill in your Azure OpenAI details:
+Create `TransactionApproval/appsettings.Development.json` (gitignored — never committed):
 
 ```json
 {
@@ -81,11 +92,32 @@ transactions/
   ...
 ```
 
-### 4. Run
+### 4. (Optional) Add Tesseract OCR for image evidence
 
+Download `eng.traineddata` (~4 MB) from:
+
+```
+https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata
+```
+
+Place it at `TransactionMcp/tessdata/eng.traineddata`. Without this, image evidence files are skipped gracefully.
+
+### 5. Run
+
+Open two terminals:
+
+**Terminal 1 — MCP server:**
+```bash
+cd TransactionMcp
+dotnet run
+# Listening on http://localhost:5001
+```
+
+**Terminal 2 — Web app:**
 ```bash
 cd TransactionApproval
 dotnet run
+# Listening on http://localhost:5000
 ```
 
 Open `http://localhost:5000` in a browser.
@@ -95,59 +127,80 @@ Open `http://localhost:5000` in a browser.
 ## Project Structure
 
 ```
-TransactionApproval/
-├── Program.cs                        ← app startup + /agent/analyze + /agent/chat endpoints
-├── appsettings.json                  ← default config (no secrets)
-├── appsettings.Development.json      ← local secrets (gitignored — you fill this in)
-├── Prompts/
-│   └── AgentPrompts.cs               ← system prompts for analyze, transaction, and chat
-├── Models/
-│   ├── AgentContext.cs               ← in-memory session model
-│   ├── NavUpdate.cs                  ← navigation agent response model
-│   └── TransactionSummary.cs         ← list page row model
+TransactionMcp/                            ← MCP server (data + tool definitions)
+├── Program.cs                             ← startup, DI, app.MapMcp("/mcp")
+├── appsettings.json                       ← default config (no secrets)
+├── appsettings.Development.json           ← local/portal secrets (gitignored)
+├── Tools/
+│   └── TransactionTools.cs                ← list_transactions, get_transaction, get_evidence
 ├── Services/
-│   ├── AzureOpenAiService.cs         ← Azure OpenAI client
-│   ├── TransactionService.cs         ← loads transactions, builds context, nav agent
-│   ├── EvidenceExtractorService.cs   ← extracts XLSX / PDF / MSG / image content
-│   ├── AgentContextStore.cs          ← in-memory context store (ConcurrentDictionary)
-│   └── AgentService.cs               ← parses LLM responses (SUMMARY/QUESTIONS/FOLLOW_UP)
+│   ├── IDataService.cs                    ← data access interface
+│   ├── LocalFileDataService.cs            ← reads transactions/*.json
+│   ├── PortalApiDataService.cs            ← calls portal REST APIs (stub — configure when ready)
+│   └── EvidenceExtractorService.cs        ← XLSX / PDF / MSG / image (OCR) text extraction
+└── Models/
+    └── TransactionSummary.cs
+
+TransactionApproval/                       ← Web app (UI + LLM orchestration)
+├── Program.cs                             ← startup + /agent/start + /agent/chat endpoints
+├── appsettings.json                       ← default config (no secrets)
+├── appsettings.Development.json           ← Azure OpenAI credentials (gitignored)
+├── Prompts/
+│   └── AgentPrompts.cs                    ← StartPrompt, ChatPrompt
+├── Models/
+│   └── TransactionSummary.cs              ← list page row model
+├── Services/
+│   ├── AzureOpenAiService.cs              ← Azure OpenAI client wrapper
+│   ├── McpClientService.cs                ← MCP client — connects, lists tools, routes calls
+│   └── TransactionService.cs              ← loads JSON for page rendering (list + detail)
 ├── Pages/
-│   ├── Index.cshtml + .cs            ← transaction list page
-│   └── Transaction.cshtml + .cs      ← transaction detail page
+│   ├── Index.cshtml + .cs                 ← transaction list page
+│   └── Transaction.cshtml + .cs           ← transaction detail page
 └── wwwroot/
-    └── js/universal-agent.js         ← browser agent (buildContext, analyzeCurrentPage, askQuestion)
+    └── js/universal-agent.js              ← PageAgent: start() and ask() only
 ```
 
 ---
 
 ## How It Works
 
-### Page Agent flow
+### Agent flow
 
 1. User clicks **Agent** on any page.
-2. `universal-agent.js` calls `buildContext()`, which reads the page's data from the DOM into a compact structured object — **no raw HTML is sent**.
-3. For transaction detail pages, the server also extracts the full contents of any attached evidence files (XLSX rows, PDF text, email body, images) and sends them to the LLM alongside the structured JSON.
-4. GPT-4.1 produces a structured 5-section compliance report (summary, risk & compliance, evidence review, recommendation, justification) plus suggested questions.
-5. The summary appears in the left panel; suggested questions appear as clickable pills on the right.
-6. Clicking a question (or typing a custom one) sends it to `/agent/chat` along with the visible conversation history. The server prepends the full page context to the first message so the LLM always has complete transaction data regardless of where in the conversation you are.
-7. A `FOLLOW_UP:` block in each LLM response surfaces follow-up questions after every answer.
-8. Chat history is held client-side for the duration of the page session and cleared on navigation — only what is visible in the chat is ever sent to the LLM.
+2. Browser sends `POST /agent/start` with `{ page: { pageType, txnId } }` — no DOM content.
+3. Web app runs an agentic loop: builds a system prompt, calls Azure OpenAI with MCP tools attached.
+4. LLM calls `get_transaction(txnId)` — the MCP server reads the JSON file and extracts all evidence text, returning everything as a single text block.
+5. LLM produces a structured compliance report (summary, risk & compliance, evidence, recommendation, justification) plus suggested questions.
+6. For follow-up questions, `POST /agent/chat` sends `{ question, page, chat_history }`. LLM calls tools as needed and answers in context.
+7. Chat history is held client-side for the page session only.
 
-### Navigation agent
+### Switching to Portal APIs
 
-When a question mentions a transaction ID (pattern `ATXN\d+`) that is not the current page, the server:
-1. Checks whether `transactions/<ID>.json` exists.
-2. If it does, builds a structured context for that transaction and passes it as additional context to the LLM.
-3. Returns the navigated transaction ID to the browser, which stores it in `sessionStorage['agent_nav_history']` (cleared automatically when the tab closes).
+When your portal REST APIs are available, update `TransactionMcp/appsettings.Development.json`:
+
+```json
+{
+  "DataSource": "PortalApi",
+  "PortalApi": {
+    "BaseUrl":          "https://yourportal.example.com/api",
+    "AuthType":         "ApiKey",
+    "ApiKey":           "YOUR_PORTAL_API_KEY",
+    "ListEndpoint":     "/transactions",
+    "GetEndpoint":      "/transactions/{id}",
+    "EvidenceEndpoint": "/transactions/{id}/evidence/{index}"
+  }
+}
+```
+
+All other code is unchanged. Portal credentials stay in the MCP server — they are never passed to the LLM or the web app.
 
 ---
 
-## Scaling: When to Consider a RAG Pipeline
+## Secrets Checklist
 
-The current approach sends the full evidence content directly into the LLM prompt on every `/agent/analyze` call. This works well for the typical case of 1–3 small evidence files per transaction, and requires no additional infrastructure.
-
-If usage grows to the point where evidence files become large or numerous, a RAG (Retrieval-Augmented Generation) pipeline would help by embedding evidence chunks into a vector store and retrieving only the most relevant chunks per question, rather than sending everything every time. Consider this when:
-
-- Evidence files regularly exceed 10+ pages each.
-- Users ask questions whose answers are buried deep in evidence documents rather than in the structured transaction fields.
-- Token costs from large evidence payloads become significant.
+| File | Contains | Committed? |
+|------|----------|-----------|
+| `TransactionApproval/appsettings.Development.json` | Azure OpenAI key | **Never** |
+| `TransactionMcp/appsettings.Development.json` | Portal API key | **Never** |
+| `transactions/` directory | Transaction data | **Never** |
+| `TransactionMcp/tessdata/` | OCR model (large binary) | **Never** |

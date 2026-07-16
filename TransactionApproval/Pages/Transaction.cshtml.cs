@@ -16,8 +16,6 @@ public class TransactionModel : PageModel, IDisposable
     public JsonElement OgsData { get; private set; }
     public JsonElement ChecklistsData { get; private set; }
     public JsonElement AdditionalData { get; private set; }
-    public int EvidenceCount { get; private set; }
-
     public TransactionModel(TransactionService txnSvc) => _txnSvc = txnSvc;
 
     public IActionResult OnGet(string txnId)
@@ -27,12 +25,10 @@ public class TransactionModel : PageModel, IDisposable
 
         TxnId = txnId;
         Root = _doc.RootElement;
-        TxnData    = Get(Root, "ActualTransactionData");
-        OgsData    = Get(Root, "OGSRiskCategoryDetails");
+        TxnData        = Get(Root, "ActualTransactionData");
+        OgsData        = Get(Root, "OGSRiskCategoryDetails");
         ChecklistsData = Get(Root, "Checklists");
         AdditionalData = Get(Root, "AdditionalInformationData");
-        EvidenceCount  = Root.TryGetProperty("evidence_files", out var ef) &&
-                         ef.ValueKind == JsonValueKind.Array ? ef.GetArrayLength() : 0;
         return Page();
     }
 
