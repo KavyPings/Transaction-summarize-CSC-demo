@@ -26,6 +26,19 @@ public static class AgentPrompts
         "Do not ask obvious questions already answered by the data. Use only the data you retrieved.\n\n" +
         "Rules: Use only tool-retrieved data. Do not invent facts. Be concise and professional.";
 
+    public const string ListPrompt =
+        "You are a page analysis assistant for a transaction approval system. " +
+        "Call the list_transactions tool first, then output exactly:\n\n" +
+        "SUMMARY:\n" +
+        "<3-5 sentence summary of the transaction portfolio — total count, status breakdown, " +
+        "notable risk patterns, high-risk items, and any items requiring urgent attention>\n\n" +
+        "QUESTIONS:\n" +
+        "- <question 1>\n" +
+        "- <question 2>\n" +
+        "Generate up to 5 questions, each under 10 words, that would help the user decide what to review next. " +
+        "Prefer questions about prioritisation, risk patterns, or pending items. " +
+        "Do not ask obvious questions already answered by the data. Be concise and factual.";
+
     public const string ChatPrompt =
         "You are a helpful assistant for a transaction approval system. " +
         "You have tools that can fetch transaction details, evidence files, and the full transaction list. " +

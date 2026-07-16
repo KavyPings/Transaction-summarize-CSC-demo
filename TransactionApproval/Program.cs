@@ -44,20 +44,30 @@ app.MapPost("/agent/start", async (
         ? ti.GetString() ?? ""
         : "";
 
-    string prompt;
+    string systemPrompt;
+    string userPrompt;
     if (pageType == "transaction_detail" && txnId.Length > 0)
-        prompt = $"The user is viewing transaction {txnId}. Fetch its full details and evidence using the get_transaction tool, then produce a thorough analysis.";
+    {
+        systemPrompt = AgentPrompts.StartPrompt;
+        userPrompt = $"The user is viewing transaction {txnId}. Fetch its full details and evidence using the get_transaction tool, then produce a thorough analysis.";
+    }
     else if (pageType == "transaction_list")
-        prompt = "The user is viewing the transaction list. Fetch all transactions using the list_transactions tool and provide a portfolio summary highlighting any notable risk patterns.";
+    {
+        systemPrompt = AgentPrompts.ListPrompt;
+        userPrompt = "Analyse the transaction list.";
+    }
     else
-        prompt = "The user has opened the agent. Greet them and let them know what you can help with.";
+    {
+        systemPrompt = AgentPrompts.ListPrompt;
+        userPrompt = "The user has opened the agent. Fetch and summarise what's available.";
+    }
 
     try
     {
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(AgentPrompts.StartPrompt),
-            new UserChatMessage(prompt),
+            new SystemChatMessage(systemPrompt),
+            new UserChatMessage(userPrompt),
         };
 
         var raw = await RunAgentLoopAsync(openAi.GetChatClient(), mcpClient, messages);
