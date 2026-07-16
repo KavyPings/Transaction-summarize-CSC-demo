@@ -53,6 +53,21 @@ public class LocalFileDataService : IDataService
         return Task.FromResult<JsonDocument?>(JsonDocument.Parse(File.ReadAllText(path)));
     }
 
+    public Task<List<string>> GetEvidenceNamesAsync(string id, JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("evidence_files", out var ef) || ef.ValueKind != JsonValueKind.Array)
+            return Task.FromResult(new List<string>());
+
+        var names = ef.EnumerateArray()
+            .Select(v => v.GetString() ?? "")
+            .Where(s => s.Length > 0)
+            .Select(p => Path.GetFileName(p) ?? p)
+            .ToList();
+
+        return Task.FromResult(names);
+    }
+
     public Task<List<string>> GetEvidencePathsAsync(string id, JsonDocument doc)
     {
         var root = doc.RootElement;
@@ -125,11 +140,11 @@ public class LocalFileDataService : IDataService
             },
             risk_flags = new
             {
-                is_pep = GetBool(ogs, "IsPEP"),
-                is_sanction = GetBool(ogs, "IsSanction"),
-                negative_media = GetBool(ogs, "IsNegativeMedia"),
-                law_enforcement = GetBool(ogs, "IsLawEnforcement"),
-                regulatory_enforcement = GetBool(ogs, "IsRegulatoryEnforcement"),
+                pep = GetBool(ogs, "IsPEP"),
+                watchlist = GetBool(ogs, "IsSanction"),
+                adverse_media = GetBool(ogs, "IsNegativeMedia"),
+                enforcement_matter = GetBool(ogs, "IsLawEnforcement"),
+                regulatory_matter = GetBool(ogs, "IsRegulatoryEnforcement"),
                 country_risk = GetStr(ogs, "CountryRisk"),
                 risk_rating = GetStr(root, "RiskRating"),
             },

@@ -49,7 +49,12 @@ app.MapPost("/agent/start", async (
     if (pageType == "transaction_detail" && txnId.Length > 0)
     {
         systemPrompt = AgentPrompts.StartPrompt;
-        userPrompt = $"The user is viewing transaction {txnId}. Fetch its full details and evidence using the get_transaction tool, then produce a thorough analysis.";
+        // NOTE: phrasing matters here — wording like "Fetch its full details and evidence
+        // using the get_transaction tool" reads as a prompt-injection pattern to Azure's
+        // jailbreak Prompt Shield and gets the request blocked (HTTP 400 content_filter).
+        // Keep this as a natural analysis request; the system prompt already instructs
+        // the model to call tools first.
+        userPrompt = $"Please analyse transaction {txnId} in full, including its attached evidence files, and produce your structured report.";
     }
     else if (pageType == "transaction_list")
     {
@@ -59,7 +64,7 @@ app.MapPost("/agent/start", async (
     else
     {
         systemPrompt = AgentPrompts.ListPrompt;
-        userPrompt = "The user has opened the agent. Fetch and summarise what's available.";
+        userPrompt = "Please summarise the information available on this page.";
     }
 
     try

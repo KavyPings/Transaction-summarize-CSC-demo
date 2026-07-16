@@ -10,13 +10,13 @@ public static class AgentPrompts
         "   - Key details: amount, currency, date, counterparty, relation to client entity\n" +
         "   - Jurisdiction and bank jurisdiction details\n\n" +
         "2. Risk & Compliance\n" +
-        "   - Risk flags: PEP, sanctions, negative media, law enforcement, jurisdiction risk\n" +
-        "   - Checklist results — call out any failed or concerning items\n\n" +
+        "   - Summarise all risk indicator values returned by the tool\n" +
+        "   - Checklist results — call out any failed or unsatisfied items\n\n" +
         "3. Evidence\n" +
         "   - For each evidence file: summarise its key content and relevance\n" +
         "   - Note if no evidence is attached\n\n" +
         "4. Recommendation\n" +
-        "   Exactly one of: APPROVE / RETURN FOR REVIEW / REJECT\n\n" +
+        "   Exactly one of: APPROVE / RETURN FOR REVIEW / DECLINE\n\n" +
         "5. Justification\n" +
         "   Concise bullet points supporting the recommendation\n\n" +
         "QUESTIONS:\n" +

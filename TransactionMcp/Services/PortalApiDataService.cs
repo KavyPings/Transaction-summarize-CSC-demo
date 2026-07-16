@@ -25,6 +25,10 @@ public class PortalApiDataService : IDataService
     public Task<JsonDocument?> LoadTransactionAsync(string id)
         => throw new NotImplementedException("PortalApiDataService is not yet implemented.");
 
+    // Hits a metadata-only evidence-list endpoint — no file downloads
+    public Task<List<string>> GetEvidenceNamesAsync(string id, JsonDocument doc)
+        => throw new NotImplementedException("PortalApiDataService is not yet implemented.");
+
     public Task<List<string>> GetEvidencePathsAsync(string id, JsonDocument doc)
         => throw new NotImplementedException("PortalApiDataService is not yet implemented.");
 }

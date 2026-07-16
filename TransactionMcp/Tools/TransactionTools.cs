@@ -28,17 +28,17 @@ public sealed class TransactionTools(IDataService data, EvidenceExtractorService
         var sb = new StringBuilder();
         sb.AppendLine(LocalFileDataService.BuildContextJson(doc));
 
-        var evidencePaths = await data.GetEvidencePathsAsync(id, doc);
-        if (evidencePaths.Count == 0)
+        var evidenceNames = await data.GetEvidenceNamesAsync(id, doc);
+        if (evidenceNames.Count == 0)
         {
             sb.AppendLine("\nNo evidence files attached.");
         }
         else
         {
             sb.AppendLine("\nEvidence files (call GetEvidence(id, index) to read one):");
-            for (int i = 0; i < evidencePaths.Count; i++)
+            for (int i = 0; i < evidenceNames.Count; i++)
             {
-                var path = evidencePaths[i];
+                var path = evidenceNames[i];
                 var name = Path.GetFileNameWithoutExtension(path);
                 var ext  = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
                 var type = ext switch
