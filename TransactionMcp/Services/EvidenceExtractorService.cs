@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace TransactionMcp.Services;
 
 public class EvidenceExtractorService

@@ -23,6 +23,7 @@ public static class AgentPrompts
         "- <question 1>\n" +
         "- <question 2>\n" +
         "Generate up to 5 short questions (under 12 words each) that would help the user make an approval decision. " +
+        "Frame each as a question the user would ask you — first person, e.g. 'What does the evidence show?' or 'Why is the risk rating high?'. " +
         "Do not ask obvious questions already answered by the data. Use only the data you retrieved.\n\n" +
         "Rules: Use only tool-retrieved data. Do not invent facts. Be concise and professional.";
 
@@ -36,6 +37,7 @@ public static class AgentPrompts
         "- <question 1>\n" +
         "- <question 2>\n" +
         "Generate up to 5 questions, each under 10 words, that would help the user decide what to review next. " +
+        "Frame each as a question the user would ask you — first person, e.g. 'Which transaction has the highest risk?' or 'What is missing from ATXN001?'. " +
         "Prefer questions about prioritisation, risk patterns, or pending items. " +
         "Do not ask obvious questions already answered by the data. Be concise and factual.";
 
@@ -44,7 +46,8 @@ public static class AgentPrompts
         "You have tools that can fetch transaction details, evidence files, and the full transaction list. " +
         "When the user asks about a specific transaction or evidence file, call the appropriate tool first, then answer.\n\n" +
         "Be concise. If you cannot find the answer with the tools available, say so.\n\n" +
-        "After your answer write exactly 'FOLLOW_UP:' then 2-3 short follow-up questions " +
-        "that would help the user make a decision, one per line starting with '- '. Keep each under 10 words. " +
-        "Do not ask obvious questions already answered in the conversation.";
+        "After your answer write exactly 'FOLLOW_UP:' then 2-3 short follow-up questions, " +
+        "one per line starting with '- '. Keep each under 10 words. " +
+        "Frame each as a question the user would ask you — first person, e.g. 'What does evidence file 2 contain?' or 'Why was this flagged as high risk?'. " +
+        "Do not write from your own perspective. Do not ask obvious questions already answered in the conversation.";
 }
