@@ -16,7 +16,7 @@ public sealed class TransactionTools(IDataService data, EvidenceExtractorService
         return JsonSerializer.Serialize(transactions, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    [McpServerTool, Description("Get full details of a transaction including risk flags, checklist results, additional information, and all extracted evidence file contents. Use this whenever the user asks about a specific transaction.")]
+    [McpServerTool, Description("Get full details of a transaction — structured fields (amount, currency, risk flags, checklist, additional info) plus a list of attached evidence files with their index and type. Does not include evidence file contents; call GetEvidence for those.")]
     public async Task<string> GetTransaction(
         [Description("Transaction ID, e.g. ATXN001")] string id)
     {
@@ -32,23 +32,29 @@ public sealed class TransactionTools(IDataService data, EvidenceExtractorService
         if (evidencePaths.Count == 0)
         {
             sb.AppendLine("\nNo evidence files attached.");
-            return sb.ToString();
         }
-
-        sb.AppendLine($"\n{evidencePaths.Count} evidence file(s):");
-        for (int i = 0; i < evidencePaths.Count; i++)
+        else
         {
-            var path = evidencePaths[i];
-            var label = EvidenceExtractorService.Label(path, i + 1);
-            sb.AppendLine($"\n--- {label} ---");
-            try { sb.AppendLine(evidence.ExtractText(path)); }
-            catch (Exception ex) { sb.AppendLine($"[Could not extract: {ex.Message}]"); }
+            sb.AppendLine("\nEvidence files (call GetEvidence(id, index) to read one):");
+            for (int i = 0; i < evidencePaths.Count; i++)
+            {
+                var path = evidencePaths[i];
+                var name = Path.GetFileNameWithoutExtension(path);
+                var ext  = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
+                var type = ext switch
+                {
+                    "PNG" or "JPG" or "JPEG" or "BMP" or "TIFF" => $"{ext} image",
+                    "XLSX" or "XLS" => $"{ext} spreadsheet",
+                    _ => ext,
+                };
+                sb.AppendLine($"  {i}: {name} ({type})");
+            }
         }
 
         return sb.ToString();
     }
 
-    [McpServerTool, Description("Get the extracted text content of a single evidence file attached to a transaction.")]
+    [McpServerTool, Description("Read the content of a single evidence file attached to a transaction. Call this when the question specifically requires evidence file contents.")]
     public async Task<string> GetEvidence(
         [Description("Transaction ID")] string transactionId,
         [Description("Zero-based index of the evidence file")] int evidenceIndex)
