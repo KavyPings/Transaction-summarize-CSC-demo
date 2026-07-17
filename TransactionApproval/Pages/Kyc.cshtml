@@ -1,5 +1,5 @@
 @page
-@model TransactionApproval.Pages.IndexModel
+@model TransactionApproval.Pages.KycModel
 @{
     Layout = null;
 }
@@ -8,7 +8,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Transaction Approvals</title>
+  <title>KYC Records</title>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:#fff; color:#1a1a1a; }
@@ -20,20 +20,21 @@
     .header-btn:disabled { background:#9bb4cc; color:#fff; cursor:default; }
     .main { padding:24px 28px; }
     .main h2 { margin:0 0 16px; font-size:18px; }
-    .txn-table { width:100%; border-collapse:collapse; font-size:14px; }
-    .txn-table th { background:#f3f6f9; color:#0a4d8c; font-weight:600; padding:10px 14px; text-align:left; border-bottom:2px solid #e2e6ea; white-space:nowrap; }
-    .txn-table td { padding:10px 14px; border-bottom:1px solid #f0f2f4; vertical-align:middle; }
-    .txn-table tr:last-child td { border-bottom:none; }
-    .txn-table tbody tr:hover td { background:#f7f9fc; }
-    .txn-link { color:#0a4d8c; text-decoration:none; font-weight:600; }
-    .txn-link:hover { text-decoration:underline; }
+    .kyc-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .kyc-table th { background:#f3f6f9; color:#0a4d8c; font-weight:600; padding:10px 14px; text-align:left; border-bottom:2px solid #e2e6ea; white-space:nowrap; }
+    .kyc-table td { padding:10px 14px; border-bottom:1px solid #f0f2f4; vertical-align:middle; }
+    .kyc-table tr:last-child td { border-bottom:none; }
+    .kyc-table tbody tr:hover td { background:#f7f9fc; }
     .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:600; }
-    .badge-pending  { background:#fff3cd; color:#856404; }
-    .badge-approved { background:#d4edda; color:#155724; }
-    .badge-rejected { background:#f8d7da; color:#721c24; }
     .badge-high     { background:#f8d7da; color:#721c24; }
     .badge-medium   { background:#fff3cd; color:#856404; }
     .badge-low      { background:#d4edda; color:#155724; }
+    .badge-active   { background:#d4edda; color:#155724; }
+    .badge-review   { background:#fff3cd; color:#856404; }
+    .badge-suspended { background:#f8d7da; color:#721c24; }
+    .badge-edd      { background:#fde8d8; color:#7d3a00; }
+    .flag-yes { color:#b00020; font-weight:600; }
+    .flag-no  { color:#6b7785; }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; }
     .modal-overlay.open { display:flex; }
     .modal-box { background:#fff; border-radius:8px; width:82vw; height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.22); }
@@ -72,49 +73,47 @@
     #agent-send-btn:disabled { background:#9bb4cc; cursor:default; }
   </style>
 </head>
-<body data-resource-type="transactions">
+<body data-resource-type="kyc_records">
   <header>
-    <h1>Transaction Approvals</h1>
+    <h1>KYC Records</h1>
     <div class="header-right">
-      <a href="/kyc" class="header-btn">KYC</a>
+      <a href="/" class="header-btn">Transactions</a>
       <button id="agent-btn" class="header-btn" onclick="openAgentModal()">Agent</button>
     </div>
   </header>
 
   <div class="main">
-    <h2>Pending Transactions</h2>
-    @if (Model.Transactions.Any())
+    <h2>Individuals</h2>
+    @if (Model.Records.Any())
     {
-      <table class="txn-table">
+      <table class="kyc-table">
         <thead>
           <tr>
-            <th>Transaction ID</th><th>Client</th><th>Entity</th><th>Amount</th>
-            <th>Currency</th><th>Date</th><th>Status</th><th>Risk</th><th>Evidences</th>
+            <th>KYC ID</th><th>Full Name</th><th>Nationality</th>
+            <th>Risk Rating</th><th>Status</th><th>PEP</th><th>Sanctions</th><th>Next Review</th>
           </tr>
         </thead>
         <tbody>
-          @foreach (var txn in Model.Transactions)
+          @foreach (var rec in Model.Records)
           {
-            var s = txn.Status.ToLower();
-            var statusClass = s.Contains("pending") ? "badge-pending"
-                            : s.Contains("approved") ? "badge-approved"
-                            : s.Contains("rejected") ? "badge-rejected"
-                            : "badge-pending";
-            var r = txn.RiskRating.ToLower();
-            var riskClass = r == "high" ? "badge-high"
-                          : r == "medium" ? "badge-medium"
-                          : r == "low" ? "badge-low"
-                          : "badge-pending";
+            var r = rec.RiskRating.ToLower();
+            var riskClass = r == "high" ? "badge-high" : r == "medium" ? "badge-medium" : "badge-low";
+
+            var s = rec.Status.ToLower();
+            var statusClass = s.Contains("active") ? "badge-active"
+                            : s.Contains("suspended") ? "badge-suspended"
+                            : s.Contains("enhanced") ? "badge-edd"
+                            : "badge-review";
+
             <tr>
-              <td><a class="txn-link" href="/transaction/@txn.Id">@txn.Id</a></td>
-              <td>@(txn.Client.Length > 0 ? txn.Client : "—")</td>
-              <td>@(txn.Entity.Length > 0 ? txn.Entity : "—")</td>
-              <td>@(txn.Amount.Length > 0 ? txn.Amount : "—")</td>
-              <td>@(txn.Currency.Length > 0 ? txn.Currency : "—")</td>
-              <td>@(txn.Date.Length > 0 ? txn.Date : "—")</td>
-              <td><span class="badge @statusClass">@(txn.Status.Length > 0 ? txn.Status : "—")</span></td>
-              <td><span class="badge @riskClass">@(txn.RiskRating.Length > 0 ? txn.RiskRating : "—")</span></td>
-              <td>@txn.EvidenceCount</td>
+              <td><a href="/kyc/@rec.Id" style="color:#0a4d8c;text-decoration:none;font-weight:600">@rec.Id</a></td>
+              <td>@rec.FullName</td>
+              <td>@(rec.Nationality.Length > 0 ? rec.Nationality : "—")</td>
+              <td><span class="badge @riskClass">@(rec.RiskRating.Length > 0 ? rec.RiskRating : "—")</span></td>
+              <td><span class="badge @statusClass">@rec.Status</span></td>
+              <td class="@(rec.Pep ? "flag-yes" : "flag-no")">@(rec.Pep ? "Yes" : "No")</td>
+              <td class="@(rec.Sanctions ? "flag-yes" : "flag-no")">@(rec.Sanctions ? "Yes" : "No")</td>
+              <td>@(rec.NextReviewDate.Length > 0 ? rec.NextReviewDate : "—")</td>
             </tr>
           }
         </tbody>
@@ -122,7 +121,7 @@
     }
     else
     {
-      <p style="color:#6b7785;font-style:italic">No transactions found in the transactions/ directory.</p>
+      <p style="color:#6b7785;font-style:italic">No KYC records found in the kyc/ directory.</p>
     }
   </div>
 
@@ -130,7 +129,7 @@
   <div id="agent-modal" class="modal-overlay" onclick="handleAgentOverlayClick(event)">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title">Agent &mdash; Transaction List</span>
+        <span class="modal-title">Agent &mdash; KYC Records</span>
         <button class="modal-close" onclick="closeAgentModal()" title="Close">&times;</button>
       </div>
       <div class="agent-body">
@@ -154,7 +153,7 @@
             </div>
           </div>
           <div class="chat-input-row">
-            <input id="agent-input" type="text" placeholder="Ask anything about this page&hellip;" disabled
+            <input id="agent-input" type="text" placeholder="Ask anything about KYC records&hellip;" disabled
                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSendMessage();}" />
             <button id="agent-send-btn" onclick="agentSendMessage()" disabled>Send</button>
           </div>
@@ -202,124 +201,86 @@
       const section = document.getElementById('agent-followup-section');
       const pills = document.getElementById('agent-followup-pills');
       pills.innerHTML = '';
-      if (questions && questions.length) {
-        questions.forEach(q => makeAgentPill(q, pills));
-        area.prepend(section);
-        section.style.display = '';
-      }
+      questions.forEach(q => makeAgentPill(q, pills));
+      section.style.display = questions.length ? 'flex' : 'none';
+      area.scrollTop = area.scrollHeight;
     }
 
-    function setAgentDisabled(disabled) {
-      document.querySelectorAll('#agent-modal .suggestion-btn').forEach(b => { b.disabled = disabled; });
+    function setAgentInputEnabled(enabled) {
+      document.getElementById('agent-input').disabled = !enabled;
+      document.getElementById('agent-send-btn').disabled = !enabled;
     }
 
-    function replayAgentMessages() {
-      const messages = document.getElementById('agent-messages');
-      messages.innerHTML = '';
-      if (!agentCachedMessages.length) {
-        messages.innerHTML = '<div class="chat-empty" id="agent-empty">Click a question or type below to start.</div>';
-        return;
-      }
-      for (const msg of agentCachedMessages) {
-        addAgentMessage(msg.role, msg.text);
-      }
+    function setAgentBtnEnabled(enabled) {
+      document.getElementById('agent-btn').disabled = !enabled;
     }
 
     async function openAgentModal() {
-      const btn = document.getElementById('agent-btn');
-      const summaryEl = document.getElementById('agent-summary');
-      const input = document.getElementById('agent-input');
-      const sendBtn = document.getElementById('agent-send-btn');
-
-      btn.disabled = true;
       document.getElementById('agent-modal').classList.add('open');
-
-      if (agentReady) {
-        summaryEl.className = 'agent-summary';
-        summaryEl.textContent = agentCachedSummary || '';
-        document.getElementById('agent-initial-pills').innerHTML = '';
-        document.getElementById('agent-followup-section').style.display = 'none';
-        replayAgentMessages();
+      if (agentCachedSummary !== null) {
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder', 'error');
+        sum.textContent = agentCachedSummary;
         renderAgentInitialQuestions(agentCachedQuestions);
-        input.disabled = false;
-        sendBtn.disabled = false;
-      } else {
-        summaryEl.className = 'agent-summary placeholder';
-        summaryEl.textContent = 'Analysing page…';
-        document.getElementById('agent-messages').innerHTML =
-          '<div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>';
-        document.getElementById('agent-initial-pills').innerHTML = '';
-        document.getElementById('agent-followup-section').style.display = 'none';
-        input.disabled = true;
-        sendBtn.disabled = true;
-
-        try {
-          const result = await agent.start();
-          if (result.error) throw new Error(result.error);
-
-          agentReady = true;
-          agentCachedSummary = result.summary || '';
-          agentCachedQuestions = result.questions || [];
-
-          summaryEl.className = 'agent-summary';
-          summaryEl.textContent = agentCachedSummary;
-          renderAgentInitialQuestions(agentCachedQuestions);
-          input.disabled = false;
-          sendBtn.disabled = false;
-          input.focus();
-        } catch (err) {
-          summaryEl.className = 'agent-summary error';
-          summaryEl.textContent = 'Error: ' + err;
-        }
+        agentCachedMessages.forEach(m => addAgentMessage(m.role === 'user' ? 'user' : 'bot', m.text));
+        setAgentInputEnabled(true);
+        return;
       }
-      btn.disabled = false;
-    }
-
-    async function agentAskQuestion(question) {
-      if (!agentReady) return;
-      setAgentDisabled(true);
-      document.getElementById('agent-input').disabled = true;
-      document.getElementById('agent-send-btn').disabled = true;
-      addAgentMessage('user', question);
-      const typing = addAgentMessage('bot', '…');
-
+      setAgentBtnEnabled(false);
       try {
-        const data = await agent.ask(question, agentCachedMessages);
-        if (data.error) {
-          typing.className = 'msg msg-error';
-          typing.textContent = data.error;
-        } else {
-          const answer = data.answer || 'No response.';
-          typing.textContent = answer;
-          agentCachedMessages.push({ role: 'user', text: question });
-          agentCachedMessages.push({ role: 'bot', text: answer });
-          showAgentFollowUpQuestions(data.questions);
-        }
+        const data = await agent.start();
+        if (data.error) throw new Error(data.error);
+        agentCachedSummary = data.summary;
+        agentCachedQuestions = data.questions || [];
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder', 'error');
+        sum.textContent = agentCachedSummary;
+        renderAgentInitialQuestions(agentCachedQuestions);
+        setAgentInputEnabled(true);
       } catch (err) {
-        typing.className = 'msg msg-error';
-        typing.textContent = 'Request failed: ' + err;
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder');
+        sum.classList.add('error');
+        sum.textContent = `Error: ${err.message}`;
       } finally {
-        setAgentDisabled(false);
-        document.getElementById('agent-input').disabled = false;
-        document.getElementById('agent-send-btn').disabled = false;
-        document.getElementById('agent-messages').scrollTop = 9999;
+        setAgentBtnEnabled(true);
       }
-    }
-
-    async function agentSendMessage() {
-      const input = document.getElementById('agent-input');
-      const question = input.value.trim();
-      if (!question || !agentReady) return;
-      input.value = '';
-      await agentAskQuestion(question);
     }
 
     function closeAgentModal() {
       document.getElementById('agent-modal').classList.remove('open');
     }
 
-    function handleAgentOverlayClick(event) {
-      if (event.target === document.getElementById('agent-modal')) closeAgentModal();
+    function handleAgentOverlayClick(e) {
+      if (e.target === document.getElementById('agent-modal')) closeAgentModal();
+    }
+
+    async function agentAskQuestion(question) {
+      if (!agentReady && agentCachedSummary === null) return;
+      setAgentInputEnabled(false);
+      const input = document.getElementById('agent-input');
+      input.value = '';
+      addAgentMessage('user', question);
+      agentCachedMessages.push({ role: 'user', text: question });
+      const thinking = addAgentMessage('bot', 'Thinking…');
+      try {
+        const data = await agent.ask(question, agentCachedMessages.slice(0, -1));
+        if (data.error) throw new Error(data.error);
+        thinking.textContent = data.answer;
+        agentCachedMessages.push({ role: 'assistant', text: data.answer });
+        showAgentFollowUpQuestions(data.questions || []);
+      } catch (err) {
+        thinking.className = 'msg msg-error';
+        thinking.textContent = `Error: ${err.message}`;
+      } finally {
+        setAgentInputEnabled(true);
+        document.getElementById('agent-input').focus();
+      }
+    }
+
+    function agentSendMessage() {
+      const val = document.getElementById('agent-input').value.trim();
+      if (val) agentAskQuestion(val);
     }
   </script>
 </body>

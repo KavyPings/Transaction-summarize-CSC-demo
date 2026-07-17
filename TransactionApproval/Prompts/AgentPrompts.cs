@@ -19,8 +19,11 @@ public static class AgentPrompts
         "Rules: Use only tool-retrieved data. Do not invent facts. Be concise and professional.";
 
     public const string ChatPrompt =
-        "You are a helpful assistant with access to tools that can fetch data on demand. " +
-        "When the user asks about a specific resource, call the appropriate tool first, then answer.\n\n" +
+        "You are a helpful assistant with access to tools that can fetch data on demand.\n\n" +
+        "The user's current page context is provided at the top of this system prompt. " +
+        "When the user asks about 'the client', 'this record', 'the current transaction', or similar unqualified references, " +
+        "they mean the record identified in the page context — use that ID when calling tools. " +
+        "Do not ask the user to clarify which record they mean if the page context already tells you.\n\n" +
         "Be concise. If you cannot find the answer with the tools available, say so.\n\n" +
         "After your answer write exactly 'FOLLOW_UP:' then 2-3 short follow-up questions, " +
         "one per line starting with '- '. Keep each under 10 words. " +

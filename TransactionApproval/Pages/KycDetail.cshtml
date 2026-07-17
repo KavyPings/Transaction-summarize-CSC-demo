@@ -1,0 +1,328 @@
+@page "/kyc/{KycId}"
+@model TransactionApproval.Pages.KycDetailModel
+@using System.Text.Json
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KYC @Model.KycId</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:#fff; color:#1a1a1a; }
+    header { background:#0a4d8c; color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; }
+    .header-left { display:flex; align-items:center; gap:16px; }
+    header h1 { margin:0; font-size:20px; font-weight:600; }
+    .back-link { color:#a8c8f0; text-decoration:none; font-size:14px; white-space:nowrap; }
+    .back-link:hover { color:#fff; }
+    .header-btn { background:#fff; color:#0a4d8c; border:none; border-radius:4px; padding:9px 20px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .header-btn:hover { background:#dce8f5; }
+    .header-btn:disabled { background:#9bb4cc; color:#fff; cursor:default; }
+    .main { padding:24px 28px; }
+    .section { border:1px solid #e2e6ea; border-radius:6px; margin-bottom:18px; }
+    .section-title { background:#f3f6f9; padding:10px 16px; font-weight:600; font-size:14px; color:#0a4d8c; border-bottom:1px solid #e2e6ea; }
+    .row { display:flex; padding:8px 16px; border-bottom:1px solid #f0f2f4; font-size:14px; }
+    .row:last-child { border-bottom:none; }
+    .label { flex:0 0 240px; color:#55606b; }
+    .value { flex:1 1 auto; }
+    .flag-yes { color:#b00020; font-weight:600; }
+    .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:600; }
+    .badge-high     { background:#f8d7da; color:#721c24; }
+    .badge-medium   { background:#fff3cd; color:#856404; }
+    .badge-low      { background:#d4edda; color:#155724; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#fff; border-radius:8px; width:82vw; height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.22); }
+    .modal-header { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:13px 20px; border-bottom:1px solid #e2e6ea; background:#f3f6f9; }
+    .modal-title { font-size:15px; font-weight:600; color:#0a4d8c; }
+    .modal-close { background:transparent; border:none; color:#55606b; font-size:22px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:4px; }
+    .modal-close:hover { background:#e2e6ea; color:#1a1a1a; }
+    .agent-body { display:flex; flex:1 1 auto; min-height:0; overflow:hidden; }
+    .agent-left { flex:0 0 37%; display:flex; flex-direction:column; border-right:2px solid #e2e6ea; background:#fafbfc; min-height:0; }
+    .agent-panel-label { flex-shrink:0; padding:8px 16px 4px; font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#6b7785; border-bottom:1px solid #f0f2f4; }
+    .agent-summary { flex:1 1 auto; overflow-y:auto; padding:16px 18px; white-space:pre-wrap; font-size:13px; line-height:1.75; color:#1a1a1a; }
+    .agent-summary.placeholder { color:#8899aa; font-style:italic; }
+    .agent-summary.error { color:#b00020; }
+    .agent-right { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .chat-messages { flex:1 1 auto; overflow-y:auto; padding:14px 20px; display:flex; flex-direction:column; gap:10px; }
+    .msg { max-width:82%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
+    .msg-bot   { align-self:flex-start; background:#f3f6f9; color:#1a1a1a; border-bottom-left-radius:4px; }
+    .msg-user  { align-self:flex-end;   background:#0a4d8c; color:#fff;    border-bottom-right-radius:4px; }
+    .msg-error { align-self:flex-start; background:#fdecea; color:#b00020; border-bottom-left-radius:4px; }
+    .chat-empty { flex:1; display:flex; align-items:center; justify-content:center; color:#9bb4cc; font-size:13px; font-style:italic; }
+    .suggestions-area { flex-shrink:0; padding:8px 20px 10px; display:flex; flex-direction:column; gap:6px; border-top:1px solid #e2e6ea; background:#fafbfc; max-height:130px; overflow-y:auto; }
+    .suggestions-section { display:flex; flex-direction:column; gap:5px; }
+    .suggestions-section + .suggestions-section { padding-top:8px; border-top:1px dashed #d0d8e0; }
+    .suggestions-pills { display:flex; flex-wrap:wrap; gap:6px; }
+    .suggestions-label { font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#9bb4cc; }
+    .suggestions-label.followup { color:#0a4d8c; }
+    .suggestion-btn { background:#fff; border:1.5px solid #0a4d8c; color:#0a4d8c; border-radius:14px; padding:5px 13px; font-size:12px; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .suggestion-btn:hover:not(:disabled) { background:#dce8f5; }
+    .suggestion-btn:disabled { opacity:0.4; cursor:default; }
+    .chat-input-row { flex-shrink:0; display:flex; gap:8px; padding:12px 20px; border-top:1px solid #e2e6ea; background:#fafbfc; }
+    #agent-input { flex:1; padding:9px 12px; font-size:13px; border:1px solid #c8d0d8; border-radius:4px; outline:none; }
+    #agent-input:focus { border-color:#0a4d8c; }
+    #agent-input:disabled { background:#f3f6f9; }
+    #agent-send-btn { background:#0a4d8c; color:#fff; border:none; border-radius:4px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    #agent-send-btn:hover { background:#08407a; }
+    #agent-send-btn:disabled { background:#9bb4cc; cursor:default; }
+  </style>
+</head>
+
+<body data-resource-type="kyc"
+      data-resource-id="@Model.KycId"
+>
+
+  <header>
+    <div class="header-left">
+      <a href="/kyc" class="back-link">&#8592; KYC Records</a>
+      <h1>KYC Record &mdash; @Model.Val("full_name")</h1>
+    </div>
+    <button id="agent-btn" class="header-btn" onclick="openAgentModal()">Agent</button>
+  </header>
+
+  <div class="main">
+
+    <div class="section">
+      <div class="section-title">Personal Details</div>
+      <div class="row"><span class="label">KYC ID</span><span class="value">@Model.KycId</span></div>
+      <div class="row"><span class="label">Full Name</span><span class="value">@Model.Val("full_name")</span></div>
+      <div class="row"><span class="label">Date of Birth</span><span class="value">@Model.Val("date_of_birth")</span></div>
+      <div class="row"><span class="label">Nationality</span><span class="value">@Model.Val("nationality")</span></div>
+      <div class="row"><span class="label">Country of Residence</span><span class="value">@Model.Val("country_of_residence")</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Identity Document</div>
+      <div class="row"><span class="label">Document Type</span><span class="value">@Model.Nested("id_document","type")</span></div>
+      <div class="row"><span class="label">Document Number</span><span class="value">@Model.Nested("id_document","number")</span></div>
+      <div class="row"><span class="label">Expiry Date</span><span class="value">@Model.Nested("id_document","expiry")</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Employment &amp; Wealth</div>
+      <div class="row"><span class="label">Occupation</span><span class="value">@Model.Val("occupation")</span></div>
+      <div class="row"><span class="label">Employer</span><span class="value">@Model.Val("employer")</span></div>
+      <div class="row"><span class="label">Source of Funds</span><span class="value">@Model.Val("source_of_funds")</span></div>
+      <div class="row"><span class="label">Source of Wealth</span><span class="value">@Model.Val("source_of_wealth")</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Risk Assessment</div>
+      @{
+        var riskRating = Model.Val("risk_rating");
+        var riskClass = riskRating.ToLower() == "high" ? "badge-high"
+                      : riskRating.ToLower() == "medium" ? "badge-medium" : "badge-low";
+        var pepVal    = Model.Nested("risk_flags", "pep");
+        var sanctVal  = Model.Nested("risk_flags", "sanctions");
+        var mediaVal  = Model.Nested("risk_flags", "adverse_media");
+      }
+      <div class="row"><span class="label">Risk Rating</span><span class="value"><span class="badge @riskClass">@riskRating</span></span></div>
+      <div class="row"><span class="label">PEP</span><span class="value @(pepVal=="Yes"?"flag-yes":"")">@pepVal</span></div>
+      @if (pepVal == "Yes")
+      {
+        <div class="row"><span class="label">PEP Detail</span><span class="value">@Model.Nested("risk_flags","pep_detail")</span></div>
+      }
+      <div class="row"><span class="label">Sanctions</span><span class="value @(sanctVal=="Yes"?"flag-yes":"")">@sanctVal</span></div>
+      @if (sanctVal == "Yes")
+      {
+        <div class="row"><span class="label">Sanctions Detail</span><span class="value">@Model.Nested("risk_flags","sanctions_detail")</span></div>
+      }
+      <div class="row"><span class="label">Adverse Media</span><span class="value @(mediaVal=="Yes"?"flag-yes":"")">@mediaVal</span></div>
+      @if (mediaVal == "Yes")
+      {
+        <div class="row"><span class="label">Adverse Media Detail</span><span class="value">@Model.Nested("risk_flags","adverse_media_detail")</span></div>
+      }
+      <div class="row"><span class="label">Country Risk</span><span class="value">@Model.Nested("risk_flags","country_risk")</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Account Details</div>
+      <div class="row"><span class="label">Status</span><span class="value">@Model.Val("status")</span></div>
+      <div class="row"><span class="label">Onboarded</span><span class="value">@Model.Val("onboarded_date")</span></div>
+      <div class="row"><span class="label">Last Review</span><span class="value">@Model.Val("last_review_date")</span></div>
+      <div class="row"><span class="label">Next Review</span><span class="value">@Model.Val("next_review_date")</span></div>
+      <div class="row"><span class="label">Account Manager</span><span class="value">@Model.Val("account_manager")</span></div>
+    </div>
+
+    @if (Model.Root.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.String)
+    {
+      <div class="section">
+        <div class="section-title">Compliance Notes</div>
+        <div class="row"><span class="value" style="padding:4px 0">@notes.GetString()</span></div>
+      </div>
+    }
+
+    @if (Model.Root.TryGetProperty("related_entities", out var entities) && entities.ValueKind == JsonValueKind.Array)
+    {
+      <div class="section">
+        <div class="section-title">Related Entities</div>
+        @foreach (var entity in entities.EnumerateArray())
+        {
+          <div class="row"><span class="value">@entity.GetString()</span></div>
+        }
+      </div>
+    }
+
+  </div>
+
+  <!-- Agent modal -->
+  <div id="agent-modal" class="modal-overlay" onclick="handleAgentOverlayClick(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Agent &mdash; @Model.Val("full_name")</span>
+        <button class="modal-close" onclick="closeAgentModal()" title="Close">&times;</button>
+      </div>
+      <div class="agent-body">
+        <div class="agent-left">
+          <div class="agent-panel-label">Analysis</div>
+          <div id="agent-summary" class="agent-summary placeholder">Analysing record&hellip;</div>
+        </div>
+        <div class="agent-right">
+          <div class="agent-panel-label" style="border-bottom:1px solid #f0f2f4;padding:8px 20px 4px">Ask a question</div>
+          <div id="agent-messages" class="chat-messages">
+            <div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>
+          </div>
+          <div id="agent-questions" class="suggestions-area">
+            <div class="suggestions-section">
+              <div class="suggestions-label">Suggested questions</div>
+              <div id="agent-initial-pills" class="suggestions-pills"></div>
+            </div>
+            <div id="agent-followup-section" class="suggestions-section" style="display:none">
+              <div class="suggestions-label followup">Follow-up questions</div>
+              <div id="agent-followup-pills" class="suggestions-pills"></div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input id="agent-input" type="text" placeholder="Ask anything about this KYC record&hellip;" disabled
+                   onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();agentSendMessage();}" />
+            <button id="agent-send-btn" onclick="agentSendMessage()" disabled>Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="~/js/universal-agent.js"></script>
+  <script>
+    const agent = new PageAgent();
+    let agentReady = false;
+    let agentCachedSummary = null;
+    let agentCachedQuestions = [];
+    let agentCachedMessages = [];
+
+    function addAgentMessage(type, text) {
+      const messages = document.getElementById('agent-messages');
+      const empty = document.getElementById('agent-empty');
+      if (empty) empty.remove();
+      const bubble = document.createElement('div');
+      bubble.className = `msg msg-${type}`;
+      bubble.textContent = text;
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+
+    function makeAgentPill(text, container) {
+      const btn = document.createElement('button');
+      btn.className = 'suggestion-btn';
+      btn.textContent = text;
+      btn.onclick = () => agentAskQuestion(text);
+      container.appendChild(btn);
+    }
+
+    function renderAgentInitialQuestions(questions) {
+      const pills = document.getElementById('agent-initial-pills');
+      pills.innerHTML = '';
+      questions.forEach(q => makeAgentPill(q, pills));
+    }
+
+    function showAgentFollowUpQuestions(questions) {
+      const section = document.getElementById('agent-followup-section');
+      const pills = document.getElementById('agent-followup-pills');
+      pills.innerHTML = '';
+      questions.forEach(q => makeAgentPill(q, pills));
+      section.style.display = questions.length ? 'flex' : 'none';
+      document.getElementById('agent-questions').scrollTop = 999;
+    }
+
+    function setAgentInputEnabled(enabled) {
+      document.getElementById('agent-input').disabled = !enabled;
+      document.getElementById('agent-send-btn').disabled = !enabled;
+    }
+
+    function setAgentBtnEnabled(enabled) {
+      document.getElementById('agent-btn').disabled = !enabled;
+    }
+
+    async function openAgentModal() {
+      document.getElementById('agent-modal').classList.add('open');
+      if (agentCachedSummary !== null) {
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder', 'error');
+        sum.textContent = agentCachedSummary;
+        renderAgentInitialQuestions(agentCachedQuestions);
+        agentCachedMessages.forEach(m => addAgentMessage(m.role === 'user' ? 'user' : 'bot', m.text));
+        setAgentInputEnabled(true);
+        return;
+      }
+      setAgentBtnEnabled(false);
+      try {
+        const data = await agent.start();
+        if (data.error) throw new Error(data.error);
+        agentCachedSummary = data.summary;
+        agentCachedQuestions = data.questions || [];
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder', 'error');
+        sum.textContent = agentCachedSummary;
+        renderAgentInitialQuestions(agentCachedQuestions);
+        setAgentInputEnabled(true);
+      } catch (err) {
+        const sum = document.getElementById('agent-summary');
+        sum.classList.remove('placeholder');
+        sum.classList.add('error');
+        sum.textContent = `Error: ${err.message}`;
+      } finally {
+        setAgentBtnEnabled(true);
+      }
+    }
+
+    function closeAgentModal() {
+      document.getElementById('agent-modal').classList.remove('open');
+    }
+
+    function handleAgentOverlayClick(e) {
+      if (e.target === document.getElementById('agent-modal')) closeAgentModal();
+    }
+
+    async function agentAskQuestion(question) {
+      setAgentInputEnabled(false);
+      document.getElementById('agent-input').value = '';
+      addAgentMessage('user', question);
+      agentCachedMessages.push({ role: 'user', text: question });
+      const thinking = addAgentMessage('bot', 'Thinking…');
+      try {
+        const data = await agent.ask(question, agentCachedMessages.slice(0, -1));
+        if (data.error) throw new Error(data.error);
+        thinking.textContent = data.answer;
+        agentCachedMessages.push({ role: 'assistant', text: data.answer });
+        showAgentFollowUpQuestions(data.questions || []);
+      } catch (err) {
+        thinking.className = 'msg msg-error';
+        thinking.textContent = `Error: ${err.message}`;
+      } finally {
+        setAgentInputEnabled(true);
+        document.getElementById('agent-input').focus();
+      }
+    }
+
+    function agentSendMessage() {
+      const val = document.getElementById('agent-input').value.trim();
+      if (val) agentAskQuestion(val);
+    }
+  </script>
+</body>
+</html>

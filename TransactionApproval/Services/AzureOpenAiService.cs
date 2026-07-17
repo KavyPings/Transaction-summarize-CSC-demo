@@ -14,10 +14,7 @@ public class AzureOpenAiService
 
     public ChatClient GetChatClient()
     {
-        // Build the client lazily on first use (rather than in the constructor) so that a
-        // missing/blank configuration surfaces inside the request handler's try/catch as a
-        // readable JSON error, instead of throwing during DI resolution and returning an
-        // empty-body 500 (which the browser reports as "Unexpected end of JSON input").
+    
         if (_client is null)
         {
             var endpoint = _config["AzureOpenAI:Endpoint"];

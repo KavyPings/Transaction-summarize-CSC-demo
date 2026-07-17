@@ -8,10 +8,12 @@ if (dataSource.Equals("PortalApi", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddHttpClient("portal");
     builder.Services.AddSingleton<IDataService, PortalApiDataService>();
+    builder.Services.AddSingleton<IKycDataService, PortalApiKycDataService>();
 }
 else
 {
     builder.Services.AddSingleton<IDataService, LocalFileDataService>();
+    builder.Services.AddSingleton<IKycDataService, LocalFileKycDataService>();
 }
 
 builder.Services.AddSingleton<EvidenceExtractorService>();

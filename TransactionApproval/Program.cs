@@ -1,16 +1,21 @@
 using System.Text.Json;
 using OpenAI.Chat;
-using TransactionApproval.Prompts;
 using TransactionApproval.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("prompts.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<AzureOpenAiService>();
 builder.Services.AddSingleton<TransactionService>();
+builder.Services.AddSingleton<KycService>();
 builder.Services.AddSingleton<McpClientService>();
+builder.Services.Configure<PromptsOptions>(builder.Configuration.GetSection("Prompts"));
+builder.Services.AddSingleton<PromptService>();
 
 var app = builder.Build();
+var maxChatHistory = app.Configuration.GetValue<int>("ChatHistoryLimit", 10);
 
 app.UseStaticFiles();
 app.UseRouting();
@@ -23,7 +28,8 @@ app.MapRazorPages();
 app.MapPost("/agent/start", async (
     HttpRequest request,
     AzureOpenAiService openAi,
-    McpClientService mcpClient) =>
+    McpClientService mcpClient,
+    PromptService prompts) =>
 {
     JsonElement body;
     try
@@ -42,7 +48,7 @@ app.MapPost("/agent/start", async (
                      ri.ValueKind != JsonValueKind.Null
         ? ri.GetString() ?? "" : "";
 
-    var systemPrompt = AgentPrompts.AnalyzePrompt;
+    var systemPrompt = prompts.GetAnalyzePrompt(resourceType);
     // NOTE: keep wording neutral — Azure Prompt Shield blocks imperative phrasing
     // like "fetch details using the X tool" (treated as a prompt-injection pattern).
     var userPrompt = resourceId.Length > 0
@@ -73,7 +79,8 @@ app.MapPost("/agent/start", async (
 app.MapPost("/agent/chat", async (
     HttpRequest request,
     AzureOpenAiService openAi,
-    McpClientService mcpClient) =>
+    McpClientService mcpClient,
+    PromptService prompts) =>
 {
     JsonElement body;
     try
@@ -87,12 +94,30 @@ app.MapPost("/agent/chat", async (
     if (question.Length == 0)
         return Results.BadRequest(new { error = "Missing question" });
 
-    // Reconstruct conversation history from what the browser sent
-    var messages = new List<ChatMessage> { new SystemChatMessage(AgentPrompts.ChatPrompt) };
+    // Extract page context so the LLM knows which record the user is currently viewing
+    var chatResource = body.TryGetProperty("resource", out var cr) ? cr : default;
+    var chatResourceType = chatResource.ValueKind != JsonValueKind.Undefined &&
+                           chatResource.TryGetProperty("resourceType", out var crt)
+        ? crt.GetString() ?? "unknown" : "unknown";
+    var chatResourceId = chatResource.ValueKind != JsonValueKind.Undefined &&
+                         chatResource.TryGetProperty("resourceId", out var cri) &&
+                         cri.ValueKind != JsonValueKind.Null
+        ? cri.GetString() ?? "" : "";
+
+    var pageContext = chatResourceId.Length > 0
+        ? $"Page context: the user is currently viewing {chatResourceType} record \"{chatResourceId}\"."
+        : $"Page context: the user is currently on the {chatResourceType} list page.";
+
+    // Reconstruct conversation history from what the browser sent, capped to last N messages
+    var messages = new List<ChatMessage> { new SystemChatMessage($"{pageContext}\n\n{prompts.GetChatPrompt()}") };
 
     if (body.TryGetProperty("chat_history", out var ch) && ch.ValueKind == JsonValueKind.Array)
     {
-        foreach (var msg in ch.EnumerateArray())
+        var allHistory = ch.EnumerateArray().ToList();
+        var skip = Math.Max(0, allHistory.Count - maxChatHistory);
+        if (skip > 0)
+            messages.Add(new SystemChatMessage("[Note: earlier conversation has been trimmed for length.]"));
+        foreach (var msg in allHistory.Skip(skip))
         {
             var role = msg.TryGetProperty("role", out var r) ? r.GetString() ?? "" : "";
             var text = msg.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";

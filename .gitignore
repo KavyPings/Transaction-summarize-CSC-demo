@@ -1,6 +1,7 @@
 # Sensitive data
 .env
 transactions/
+kyc/
 summary_cache.json
 
 # .NET build output

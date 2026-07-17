@@ -31,4 +31,9 @@ public class PortalApiDataService : IDataService
 
     public Task<List<string>> GetEvidencePathsAsync(string id, JsonDocument doc)
         => throw new NotImplementedException("PortalApiDataService is not yet implemented.");
+
+    // TODO: map the portal's JSON shape to the neutral context object the LLM receives.
+    // Field names and nesting will differ from the local-file shape — implement here.
+    public string BuildContextJson(JsonDocument doc)
+        => throw new NotImplementedException("PortalApiDataService.BuildContextJson is not yet implemented.");
 }

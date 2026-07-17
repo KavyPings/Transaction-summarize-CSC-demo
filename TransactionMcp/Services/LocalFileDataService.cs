@@ -82,14 +82,12 @@ public class LocalFileDataService : IDataService
         return Task.FromResult(paths);
     }
 
-    // ── JSON helpers ──────────────────────────────────────────────────────────
-
-    public static string BuildContextJson(JsonDocument data)
+    public string BuildContextJson(JsonDocument doc)
     {
-        var root = data.RootElement;
-        var txd = root.TryGetProperty("ActualTransactionData", out var t) ? t : default;
-        var ogs = root.TryGetProperty("OGSRiskCategoryDetails", out var o) ? o : default;
-        var checklists = root.TryGetProperty("Checklists", out var c) ? c : default;
+        var root = doc.RootElement;
+        var txd        = root.TryGetProperty("ActualTransactionData",    out var t) ? t : default;
+        var ogs        = root.TryGetProperty("OGSRiskCategoryDetails",   out var o) ? o : default;
+        var checklists = root.TryGetProperty("Checklists",               out var c) ? c : default;
         var additional = root.TryGetProperty("AdditionalInformationData", out var a) ? a : default;
 
         var checklistFlat = new Dictionary<string, object?>();
@@ -101,7 +99,7 @@ public class LocalFileDataService : IDataService
                 foreach (var item in group.Value.EnumerateArray())
                 {
                     var key = item.TryGetProperty("Item", out var k) ? k.GetString() ?? "" : "";
-                    var val = item.TryGetProperty("Ans", out var v) ? JsonValueToObject(v) : null;
+                    var val = item.TryGetProperty("Ans",  out var v) ? JsonValueToObject(v) : null;
                     checklistFlat[key] = val;
                 }
             }
@@ -113,42 +111,41 @@ public class LocalFileDataService : IDataService
             var first = additional.EnumerateObject().FirstOrDefault();
             if (first.Value.ValueKind == JsonValueKind.Object)
             {
-                additionalFlat["background"] = GetStr(first.Value, "TransactionBackground");
-                additionalFlat["risks"] = GetStr(first.Value, "Risks");
-                additionalFlat["mitigants"] = GetStr(first.Value, "Mitigants");
-                additionalFlat["conclusion"] = GetStr(first.Value, "Conclusion");
+                additionalFlat["background"]      = GetStr(first.Value, "TransactionBackground");
+                additionalFlat["risks"]           = GetStr(first.Value, "Risks");
+                additionalFlat["mitigants"]       = GetStr(first.Value, "Mitigants");
+                additionalFlat["conclusion"]      = GetStr(first.Value, "Conclusion");
                 additionalFlat["monitoring_route"] = GetStr(first.Value, "MonitoringRoute");
             }
         }
 
-        var txnId = GetStr(root, "TransactionId") ?? "";
         var ctx = new
         {
-            transaction_id = txnId,
+            transaction_id = GetStr(root, "TransactionId") ?? "",
             transaction = new
             {
-                amount = GetStr(txd, "Amount"),
-                currency = GetStr(txd, "Currency"),
-                transaction_date = GetStr(txd, "Transaction date"),
-                transaction_category = GetStr(txd, "Transaction Category"),
-                transaction_type = GetStr(txd, "Transaction Types"),
-                frequency = GetStr(txd, "Frequency"),
+                amount                    = GetStr(txd, "Amount"),
+                currency                  = GetStr(txd, "Currency"),
+                transaction_date          = GetStr(txd, "Transaction date"),
+                transaction_category      = GetStr(txd, "Transaction Category"),
+                transaction_type          = GetStr(txd, "Transaction Types"),
+                frequency                 = GetStr(txd, "Frequency"),
                 relation_to_client_entity = GetStr(txd, "Relation to CE"),
-                country = GetStr(txd, "Country of residence"),
-                bank_jurisdiction = GetStr(txd, "Bank Jurisdiction"),
-                approval_status = GetStr(root, "ApprovalStatus"),
+                country                   = GetStr(txd, "Country of residence"),
+                bank_jurisdiction         = GetStr(txd, "Bank Jurisdiction"),
+                approval_status           = GetStr(root, "ApprovalStatus"),
             },
             risk_flags = new
             {
-                pep = GetBool(ogs, "IsPEP"),
-                watchlist = GetBool(ogs, "IsSanction"),
-                adverse_media = GetBool(ogs, "IsNegativeMedia"),
+                pep                = GetBool(ogs, "IsPEP"),
+                watchlist          = GetBool(ogs, "IsSanction"),
+                adverse_media      = GetBool(ogs, "IsNegativeMedia"),
                 enforcement_matter = GetBool(ogs, "IsLawEnforcement"),
-                regulatory_matter = GetBool(ogs, "IsRegulatoryEnforcement"),
-                country_risk = GetStr(ogs, "CountryRisk"),
-                risk_rating = GetStr(root, "RiskRating"),
+                regulatory_matter  = GetBool(ogs, "IsRegulatoryEnforcement"),
+                country_risk       = GetStr(ogs, "CountryRisk"),
+                risk_rating        = GetStr(root, "RiskRating"),
             },
-            checklist_results = checklistFlat,
+            checklist_results      = checklistFlat,
             additional_information = additionalFlat,
         };
 
@@ -159,8 +156,7 @@ public class LocalFileDataService : IDataService
         => el.ValueKind != JsonValueKind.Undefined &&
            el.TryGetProperty(prop, out var v) &&
            v.ValueKind != JsonValueKind.Null
-            ? v.ToString()
-            : null;
+            ? v.ToString() : null;
 
     private static bool? GetBool(JsonElement el, string prop)
     {
@@ -168,22 +164,22 @@ public class LocalFileDataService : IDataService
             return null;
         return v.ValueKind switch
         {
-            JsonValueKind.True => true,
+            JsonValueKind.True  => true,
             JsonValueKind.False => false,
             _ => null,
         };
     }
 
-    private static int GetEvidenceCount(JsonElement root)
-        => root.TryGetProperty("evidence_files", out var ef) && ef.ValueKind == JsonValueKind.Array
-            ? ef.GetArrayLength() : 0;
-
     private static object? JsonValueToObject(JsonElement v) => v.ValueKind switch
     {
-        JsonValueKind.True => (object?)true,
+        JsonValueKind.True  => (object?)true,
         JsonValueKind.False => false,
         JsonValueKind.Null or JsonValueKind.Undefined => null,
         JsonValueKind.Number => v.TryGetInt64(out var i) ? i : v.GetDouble(),
         _ => v.GetString(),
     };
+
+    private static int GetEvidenceCount(JsonElement root)
+        => root.TryGetProperty("evidence_files", out var ef) && ef.ValueKind == JsonValueKind.Array
+            ? ef.GetArrayLength() : 0;
 }

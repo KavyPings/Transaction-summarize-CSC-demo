@@ -26,7 +26,7 @@ public sealed class TransactionTools(IDataService data, EvidenceExtractorService
             return $"Transaction {id} not found.";
 
         var sb = new StringBuilder();
-        sb.AppendLine(LocalFileDataService.BuildContextJson(doc));
+        sb.AppendLine(data.BuildContextJson(doc));
 
         var evidenceNames = await data.GetEvidenceNamesAsync(id, doc);
         if (evidenceNames.Count == 0)
@@ -79,4 +79,5 @@ public sealed class TransactionTools(IDataService data, EvidenceExtractorService
             return $"{label}: [Could not extract — {ex.Message}]";
         }
     }
+
 }
