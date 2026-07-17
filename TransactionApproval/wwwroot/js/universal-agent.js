@@ -1,8 +1,8 @@
 class PageAgent {
-  getPage() {
+  getResource() {
     return {
-      pageType: document.body.dataset.pageType || 'unknown',
-      txnId:    document.body.dataset.txnId    || null,
+      resourceType: document.body.dataset.resourceType || 'unknown',
+      resourceId:   document.body.dataset.resourceId   || null,
     };
   }
 
@@ -10,7 +10,7 @@ class PageAgent {
     const res = await fetch('/agent/start', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ page: this.getPage() }),
+      body:    JSON.stringify({ resource: this.getResource() }),
     });
     return res.json();
   }
@@ -21,7 +21,7 @@ class PageAgent {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         question,
-        page:         this.getPage(),
+        resource:     this.getResource(),
         chat_history: chatHistory,
       }),
     });

@@ -33,39 +33,21 @@ app.MapPost("/agent/start", async (
     }
     catch { return Results.BadRequest(new { error = "Invalid JSON" }); }
 
-    var pageType = body.TryGetProperty("page", out var pg) &&
-                   pg.TryGetProperty("pageType", out var pt)
-        ? pt.GetString() ?? "unknown"
-        : "unknown";
+    var resource = body.TryGetProperty("resource", out var res) ? res : default;
+    var resourceType = resource.ValueKind != JsonValueKind.Undefined &&
+                       resource.TryGetProperty("resourceType", out var rt)
+        ? rt.GetString() ?? "unknown" : "unknown";
+    var resourceId = resource.ValueKind != JsonValueKind.Undefined &&
+                     resource.TryGetProperty("resourceId", out var ri) &&
+                     ri.ValueKind != JsonValueKind.Null
+        ? ri.GetString() ?? "" : "";
 
-    var txnId = body.TryGetProperty("page", out var pg2) &&
-                pg2.TryGetProperty("txnId", out var ti) &&
-                ti.ValueKind != JsonValueKind.Null
-        ? ti.GetString() ?? ""
-        : "";
-
-    string systemPrompt;
-    string userPrompt;
-    if (pageType == "transaction_detail" && txnId.Length > 0)
-    {
-        systemPrompt = AgentPrompts.StartPrompt;
-        // NOTE: phrasing matters here — wording like "Fetch its full details and evidence
-        // using the get_transaction tool" reads as a prompt-injection pattern to Azure's
-        // jailbreak Prompt Shield and gets the request blocked (HTTP 400 content_filter).
-        // Keep this as a natural analysis request; the system prompt already instructs
-        // the model to call tools first.
-        userPrompt = $"Please analyse transaction {txnId} in full, including its attached evidence files, and produce your structured report.";
-    }
-    else if (pageType == "transaction_list")
-    {
-        systemPrompt = AgentPrompts.ListPrompt;
-        userPrompt = "Analyse the transaction list.";
-    }
-    else
-    {
-        systemPrompt = AgentPrompts.ListPrompt;
-        userPrompt = "Please summarise the information available on this page.";
-    }
+    var systemPrompt = AgentPrompts.AnalyzePrompt;
+    // NOTE: keep wording neutral — Azure Prompt Shield blocks imperative phrasing
+    // like "fetch details using the X tool" (treated as a prompt-injection pattern).
+    var userPrompt = resourceId.Length > 0
+        ? $"Please analyse {resourceType} {resourceId} and produce your structured report."
+        : $"Please analyse the available {resourceType} data and produce your structured report.";
 
     try
     {

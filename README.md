@@ -9,8 +9,8 @@ An internal tool for reviewing and approving financial transactions. An ASP.NET 
 - **Transaction list** — landing page showing all pending transactions (ID, client, entity, amount, date, status, risk rating, evidence count).
 - **Transaction detail** — full breakdown of a single transaction: transaction info, OGS risk flags, checklist answers, and additional information.
 - **Page Agent** — a context-aware AI panel available on every page. Click **Agent** to:
-  - Get an instant AI-generated compliance summary of the current transaction.
-  - Receive suggested questions relevant to the transaction.
+  - Get an instant AI-generated analysis of the current page's data.
+  - Receive suggested questions relevant to what's on screen.
   - Ask follow-up questions in a chat; ask about any transaction by ID from any page.
 
 ---
@@ -33,8 +33,8 @@ ASP.NET Core — TransactionApproval/ (port 5000)
   │
 MCP Server — TransactionMcp/ (port 5001)
   │  list_transactions           returns all transaction summaries as JSON
-  │  get_transaction             returns full transaction data + extracted evidence text
-  │  get_evidence                returns text of a single evidence file by index
+  │  get_transaction             returns full transaction data + evidence file listing
+  │  get_evidence                returns text of a single evidence file by index (on demand)
   │
   │  LocalFileDataService        reads from transactions/*.json  (current)
   │  PortalApiDataService        calls portal REST APIs          (switch via config)
@@ -44,8 +44,9 @@ MCP Server — TransactionMcp/ (port 5001)
 **Key properties:**
 - LLM never sees portal credentials — MCP server holds them.
 - LLM fetches data on demand via tool calls (no pre-built DOM dump).
-- Browser sends only `{ question, page: {pageType, txnId}, chat_history }` — no page scraping.
+- Browser sends only `{ question, resource: {resourceType, resourceId}, chat_history }` — no page scraping.
 - No server-side session state; chat history lives in the browser.
+- The agent engine is resource-agnostic: pages stamp a `resourceType` + `resourceId` label; the LLM selects tools and formats its response based on what it finds.
 
 ---
 
@@ -146,7 +147,7 @@ TransactionApproval/                       ← Web app (UI + LLM orchestration)
 ├── appsettings.json                       ← default config (no secrets)
 ├── appsettings.Development.json           ← Azure OpenAI credentials (gitignored)
 ├── Prompts/
-│   └── AgentPrompts.cs                    ← StartPrompt, ChatPrompt
+│   └── AgentPrompts.cs                    ← AnalyzePrompt, ChatPrompt
 ├── Models/
 │   └── TransactionSummary.cs              ← list page row model
 ├── Services/
@@ -167,11 +168,11 @@ TransactionApproval/                       ← Web app (UI + LLM orchestration)
 ### Agent flow
 
 1. User clicks **Agent** on any page.
-2. Browser sends `POST /agent/start` with `{ page: { pageType, txnId } }` — no DOM content.
-3. Web app runs an agentic loop: builds a system prompt, calls Azure OpenAI with MCP tools attached.
-4. LLM calls `get_transaction(txnId)` — the MCP server reads the JSON file and extracts all evidence text, returning everything as a single text block.
-5. LLM produces a structured compliance report (summary, risk & compliance, evidence, recommendation, justification) plus suggested questions.
-6. For follow-up questions, `POST /agent/chat` sends `{ question, page, chat_history }`. LLM calls tools as needed and answers in context.
+2. Browser sends `POST /agent/start` with `{ resource: { resourceType, resourceId } }` — a tiny label, no DOM content.
+3. Web app builds a generic user prompt (`"Please analyse {resourceType} {resourceId}..."`) and passes it to the agentic loop alongside the full MCP tool set.
+4. LLM picks the appropriate tool(s) — e.g. `get_transaction("ATXN001")` for a detail page, `list_transactions()` for the list page — and calls them via the MCP server.
+5. MCP server returns structured data (and on-demand evidence text via `get_evidence`). LLM produces a `SUMMARY:` section followed by a `QUESTIONS:` list, adapting its structure to the data retrieved.
+6. For follow-up questions, `POST /agent/chat` sends `{ question, resource, chat_history }`. The LLM calls tools as needed and answers in context.
 7. Chat history is held client-side for the page session only.
 
 ### Switching to Portal APIs
