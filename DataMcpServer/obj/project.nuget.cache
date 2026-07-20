@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "dgSpecHash": "xc7ViH8WxJw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionmcp\\TransactionMcp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\100646133\\.nuget\\packages\\closedxml\\0.104.2\\closedxml.0.104.2.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\closedxml.parser\\1.2.0\\closedxml.parser.1.2.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\documentformat.openxml\\3.1.1\\documentformat.openxml.3.1.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\documentformat.openxml.framework\\3.1.1\\documentformat.openxml.framework.3.1.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\excelnumberformat\\1.1.0\\excelnumberformat.1.1.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\microsoft.extensions.ai.abstractions\\10.5.2\\microsoft.extensions.ai.abstractions.10.5.2.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\microsoft.io.recyclablememorystream\\3.0.1\\microsoft.io.recyclablememorystream.3.0.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\microsoft.maui.graphics\\10.0.80\\microsoft.maui.graphics.10.0.80.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\modelcontextprotocol\\1.4.1\\modelcontextprotocol.1.4.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\modelcontextprotocol.aspnetcore\\1.4.1\\modelcontextprotocol.aspnetcore.1.4.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\modelcontextprotocol.core\\1.4.1\\modelcontextprotocol.core.1.4.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\msgreader\\6.1.0\\msgreader.6.1.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\openmcdf\\3.1.4\\openmcdf.3.1.4.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\pdfpig\\0.1.9\\pdfpig.0.1.9.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\rbush\\4.0.0\\rbush.4.0.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\rtfpipe\\2.0.7677.4303\\rtfpipe.2.0.7677.4303.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\sixlabors.fonts\\1.0.0\\sixlabors.fonts.1.0.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\system.io.packaging\\8.0.1\\system.io.packaging.8.0.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\system.security.cryptography.pkcs\\10.0.9\\system.security.cryptography.pkcs.10.0.9.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\tesseract\\5.2.0\\tesseract.5.2.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\utf.unknown\\2.6.0\\utf.unknown.2.6.0.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "dgSpecHash": "158h1FLDPTw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionapproval\\TransactionApproval.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\100646133\\.nuget\\packages\\azure.ai.openai\\2.1.0\\azure.ai.openai.2.1.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\azure.core\\1.44.1\\azure.core.1.44.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\6.0.0\\microsoft.bcl.asyncinterfaces.6.0.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\microsoft.extensions.ai.abstractions\\10.5.2\\microsoft.extensions.ai.abstractions.10.5.2.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\modelcontextprotocol.core\\1.4.1\\modelcontextprotocol.core.1.4.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\openai\\2.1.0\\openai.2.1.0.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\system.clientmodel\\1.2.1\\system.clientmodel.1.2.1.nupkg.sha512",
+    "C:\\Users\\100646133\\.nuget\\packages\\system.memory.data\\6.0.0\\system.memory.data.6.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

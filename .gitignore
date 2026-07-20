@@ -1,21 +1,21 @@
-# Sensitive data
+# Sensitive data — never commit these
 .env
 transactions/
 kyc/
 summary_cache.json
 
-# .NET build output
-TransactionApproval/bin/
-TransactionApproval/obj/
-TransactionMcp/bin/
-TransactionMcp/obj/
+# Development appsettings contain real credentials — fill in locally, never commit
+ReviewPortal/appsettings.Development.json
+DataMcpServer/appsettings.Development.json
 
-# .NET secrets (fill in appsettings.Development.json locally — never commit)
-TransactionApproval/appsettings.Development.json
-TransactionMcp/appsettings.Development.json
+# .NET build output
+ReviewPortal/bin/
+ReviewPortal/obj/
+DataMcpServer/bin/
+DataMcpServer/obj/
 
 # Tesseract OCR model data (large binary — download separately)
-TransactionMcp/tessdata/
+DataMcpServer/tessdata/
 
 # Misc
 .tmp/
