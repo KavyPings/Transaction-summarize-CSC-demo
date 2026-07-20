@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "xc7ViH8WxJw=",
+  "dgSpecHash": "5+J3ptAlexY=",
   "success": true,
-  "projectFilePath": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionmcp\\TransactionMcp.csproj",
+  "projectFilePath": "C:\\Users\\100646133\\Documents\\transaction summarise\\datamcpserver\\DataMcpServer.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\100646133\\.nuget\\packages\\closedxml\\0.104.2\\closedxml.0.104.2.nupkg.sha512",
     "C:\\Users\\100646133\\.nuget\\packages\\closedxml.parser\\1.2.0\\closedxml.parser.1.2.0.nupkg.sha512",

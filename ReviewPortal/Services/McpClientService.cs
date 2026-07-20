@@ -11,6 +11,13 @@ public sealed class McpClientService(IConfiguration config) : IAsyncDisposable
     private IList<McpClientTool>? _tools;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    private void ResetConnection()
+    {
+        if (_client is IAsyncDisposable d) _ = d.DisposeAsync().AsTask();
+        _client = null;
+        _tools = null;
+    }
+
     private async Task EnsureConnectedAsync(CancellationToken ct = default)
     {
         if (_client != null) return;
@@ -34,9 +41,29 @@ public sealed class McpClientService(IConfiguration config) : IAsyncDisposable
         CancellationToken ct = default)
     {
         await EnsureConnectedAsync(ct);
-        var source = allowedNames != null
-            ? _tools!.Where(t => allowedNames.Contains(t.Name))
-            : (IEnumerable<McpClientTool>)_tools!;
+        IEnumerable<McpClientTool> source;
+        if (allowedNames != null)
+        {
+            var filtered = _tools!.Where(t => allowedNames.Contains(t.Name)).ToList();
+            // If the filter matched nothing but tools exist, the server may have been restarted
+            // with new tools — reconnect once to refresh the cached list.
+            if (filtered.Count == 0 && _tools!.Count > 0)
+            {
+                await _lock.WaitAsync(ct);
+                try
+                {
+                    ResetConnection();  // sets _client=null, _tools=null inside the lock
+                }
+                finally { _lock.Release(); }
+                await EnsureConnectedAsync(ct);  // re-acquires lock to reconnect safely
+                filtered = _tools!.Where(t => allowedNames.Contains(t.Name)).ToList();
+            }
+            source = filtered;
+        }
+        else
+        {
+            source = _tools!;
+        }
         return source.Select(t => ChatTool.CreateFunctionTool(
             t.Name,
             t.Description,

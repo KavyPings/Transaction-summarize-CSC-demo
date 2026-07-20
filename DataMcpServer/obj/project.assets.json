@@ -1018,11 +1018,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionmcp\\TransactionMcp.csproj",
-      "projectName": "TransactionMcp",
-      "projectPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionmcp\\TransactionMcp.csproj",
+      "projectUniqueName": "C:\\Users\\100646133\\Documents\\transaction summarise\\datamcpserver\\DataMcpServer.csproj",
+      "projectName": "DataMcpServer",
+      "projectPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\datamcpserver\\DataMcpServer.csproj",
       "packagesPath": "C:\\Users\\100646133\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\transactionmcp\\obj\\",
+      "outputPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\datamcpserver\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\100646133\\AppData\\Roaming\\NuGet\\NuGet.Config"

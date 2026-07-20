@@ -306,11 +306,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\100646133\\Documents\\transaction summarise\\TransactionApproval\\TransactionApproval.csproj",
-      "projectName": "TransactionApproval",
-      "projectPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\TransactionApproval\\TransactionApproval.csproj",
+      "projectUniqueName": "C:\\Users\\100646133\\Documents\\transaction summarise\\reviewportal\\ReviewPortal.csproj",
+      "projectName": "ReviewPortal",
+      "projectPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\reviewportal\\ReviewPortal.csproj",
       "packagesPath": "C:\\Users\\100646133\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\TransactionApproval\\obj\\",
+      "outputPath": "C:\\Users\\100646133\\Documents\\transaction summarise\\reviewportal\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\100646133\\AppData\\Roaming\\NuGet\\NuGet.Config"

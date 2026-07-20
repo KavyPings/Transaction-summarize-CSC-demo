@@ -163,6 +163,9 @@ static async Task<string> RunAgentLoopAsync(
     CancellationToken ct = default)
 {
     var chatTools = await mcpClient.GetChatToolsAsync(allowedTools, ct);
+    if (chatTools.Count == 0 && allowedTools != null)
+        return $"(Agent error: none of the required tools [{string.Join(", ", allowedTools)}] were found on the MCP server. Restart DataMcpServer and try again.)";
+
     var options = new ChatCompletionOptions { Temperature = 0.2f };
     foreach (var tool in chatTools)
         options.Tools.Add(tool);
@@ -183,7 +186,7 @@ static async Task<string> RunAgentLoopAsync(
         }
         else
         {
-            return response.Value.Content[0].Text ?? "";
+            return response.Value.Content.FirstOrDefault()?.Text ?? "";
         }
     }
 

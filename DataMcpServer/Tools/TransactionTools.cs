@@ -9,14 +9,14 @@ namespace DataMcpServer.Tools;
 [McpServerToolType]
 public sealed class TransactionTools(ITransactionDataService data, EvidenceExtractorService evidence)
 {
-    [McpServerTool, Description("List all transactions with summary fields (id, client, entity, amount, currency, date, status, riskRating, evidenceCount).")]
+    [McpServerTool(Name = "ListTransactions"), Description("List all transactions with summary fields (id, client, entity, amount, currency, date, status, riskRating, evidenceCount).")]
     public async Task<string> ListTransactions()
     {
         var transactions = await data.ListTransactionsAsync();
         return JsonSerializer.Serialize(transactions, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    [McpServerTool, Description("Get full details of a transaction — structured fields (amount, currency, risk flags, checklist, additional info) plus a list of attached evidence files with their index and type. Does not include evidence file contents; call GetEvidence for those.")]
+    [McpServerTool(Name = "GetTransaction"), Description("Get full details of a transaction — structured fields (amount, currency, risk flags, checklist, additional info) plus a list of attached evidence files with their index and type. Does not include evidence file contents; call GetEvidence for those.")]
     public async Task<string> GetTransaction(
         [Description("Transaction ID, e.g. ATXN001")] string id)
     {
@@ -54,7 +54,7 @@ public sealed class TransactionTools(ITransactionDataService data, EvidenceExtra
         return sb.ToString();
     }
 
-    [McpServerTool, Description("Read the content of a single evidence file attached to a transaction. Call this when the question specifically requires evidence file contents.")]
+    [McpServerTool(Name = "GetEvidence"), Description("Read the content of a single evidence file attached to a transaction. Call this when the question specifically requires evidence file contents.")]
     public async Task<string> GetEvidence(
         [Description("Transaction ID")] string transactionId,
         [Description("Zero-based index of the evidence file")] int evidenceIndex)

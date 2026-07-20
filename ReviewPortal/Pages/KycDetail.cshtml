@@ -226,6 +226,18 @@
       return bubble;
     }
 
+    function replayAgentMessages() {
+      const messages = document.getElementById('agent-messages');
+      messages.innerHTML = '';
+      if (!agentCachedMessages.length) {
+        messages.innerHTML = '<div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>';
+        return;
+      }
+      for (const msg of agentCachedMessages) {
+        addAgentMessage(msg.role === 'user' ? 'user' : 'bot', msg.text);
+      }
+    }
+
     function makeAgentPill(text, container) {
       const btn = document.createElement('button');
       btn.className = 'suggestion-btn';
@@ -254,39 +266,46 @@
       document.getElementById('agent-send-btn').disabled = !enabled;
     }
 
-    function setAgentBtnEnabled(enabled) {
-      document.getElementById('agent-btn').disabled = !enabled;
-    }
-
     async function openAgentModal() {
+      const btn = document.getElementById('agent-btn');
+      const summaryEl = document.getElementById('agent-summary');
+      btn.disabled = true;
       document.getElementById('agent-modal').classList.add('open');
-      if (agentCachedSummary !== null) {
-        const sum = document.getElementById('agent-summary');
-        sum.classList.remove('placeholder', 'error');
-        sum.textContent = agentCachedSummary;
+
+      if (agentReady) {
+        summaryEl.className = 'agent-summary';
+        summaryEl.textContent = agentCachedSummary || '';
         renderAgentInitialQuestions(agentCachedQuestions);
-        agentCachedMessages.forEach(m => addAgentMessage(m.role === 'user' ? 'user' : 'bot', m.text));
+        document.getElementById('agent-followup-section').style.display = 'none';
+        replayAgentMessages();
         setAgentInputEnabled(true);
+        btn.disabled = false;
         return;
       }
-      setAgentBtnEnabled(false);
+
+      summaryEl.className = 'agent-summary placeholder';
+      summaryEl.textContent = 'Analysing record…';
+      document.getElementById('agent-messages').innerHTML =
+        '<div class="chat-empty" id="agent-empty">Analysis will appear on the left. Click a question or type to start.</div>';
+      document.getElementById('agent-initial-pills').innerHTML = '';
+      document.getElementById('agent-followup-section').style.display = 'none';
+      setAgentInputEnabled(false);
+
       try {
         const data = await agent.start();
         if (data.error) throw new Error(data.error);
-        agentCachedSummary = data.summary;
+        agentReady = true;
+        agentCachedSummary = data.summary || '';
         agentCachedQuestions = data.questions || [];
-        const sum = document.getElementById('agent-summary');
-        sum.classList.remove('placeholder', 'error');
-        sum.textContent = agentCachedSummary;
+        summaryEl.className = 'agent-summary';
+        summaryEl.textContent = agentCachedSummary;
         renderAgentInitialQuestions(agentCachedQuestions);
         setAgentInputEnabled(true);
       } catch (err) {
-        const sum = document.getElementById('agent-summary');
-        sum.classList.remove('placeholder');
-        sum.classList.add('error');
-        sum.textContent = `Error: ${err.message}`;
+        summaryEl.className = 'agent-summary error';
+        summaryEl.textContent = `Error: ${err.message}`;
       } finally {
-        setAgentBtnEnabled(true);
+        btn.disabled = false;
       }
     }
 
@@ -299,16 +318,17 @@
     }
 
     async function agentAskQuestion(question) {
+      if (!agentReady) return;
       setAgentInputEnabled(false);
       document.getElementById('agent-input').value = '';
       addAgentMessage('user', question);
-      agentCachedMessages.push({ role: 'user', text: question });
       const thinking = addAgentMessage('bot', 'Thinking…');
       try {
-        const data = await agent.ask(question, agentCachedMessages.slice(0, -1));
+        const data = await agent.ask(question, agentCachedMessages);
         if (data.error) throw new Error(data.error);
         thinking.textContent = data.answer;
-        agentCachedMessages.push({ role: 'assistant', text: data.answer });
+        agentCachedMessages.push({ role: 'user', text: question });
+        agentCachedMessages.push({ role: 'bot', text: data.answer });
         showAgentFollowUpQuestions(data.questions || []);
       } catch (err) {
         thinking.className = 'msg msg-error';
